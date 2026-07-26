@@ -8,7 +8,7 @@
 #  include <windows.h>
 #endif
 
-/* Pixel comet: W/Y/O=warm core, C/T/D/B=cyan tail fade (see scripts/gen-logo.py) */
+/* Pixel comet sprite: W/Y/O core, C/T/D/B tail (assets/moontail-logo.png) */
 static const char * const MOONTAIL_LOGO[] = {
     "                                ",
     "                  BBBBBBBB      ",
