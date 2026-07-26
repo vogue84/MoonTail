@@ -8,7 +8,7 @@
 #  include <windows.h>
 #endif
 
-/* Pixel comet sprite: W/Y/O core, C/T/D/B tail (assets/moontail-logo.png) */
+/* Terminal banner sprite (README logo: assets/moontail-logo.png) */
 static const char * const MOONTAIL_LOGO[] = {
     "                                ",
     "                  BBBBBBBB      ",

@@ -1,15 +1,13 @@
-<table>
-<tr>
-<td valign="middle"><img src="assets/moontail-logo.png?v=4" width="140" alt="MoonTail pixel comet"/></td>
-<td valign="middle">
-<h1>MoonTail</h1>
-<p><em>tail the moon, split the experts</em></p>
-<p><strong>The CLI for reciprocal MoE inference.</strong><br/>
-Run frontier-scale models on your machine. Offload expert compute to a volunteer swarm.<br/>
-Zero central GPU. Measurement-first. ~800 lines of glue.</p>
-</td>
-</tr>
-</table>
+<p align="center">
+  <img src="assets/moontail-logo.png" width="420" alt="MoonTail"/>
+</p>
+
+<p align="center">
+  <em>tail the moon, split the experts</em><br/>
+  <strong>The CLI for reciprocal MoE inference.</strong><br/>
+  Run frontier-scale models on your machine. Offload expert compute to a volunteer swarm.<br/>
+  Zero central GPU. Measurement-first. ~800 lines of glue.
+</p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"/></a>
@@ -31,7 +29,6 @@ Zero central GPU. Measurement-first. ~800 lines of glue.</p>
 MoonTail is the thin layer that turns *“I want to generate tokens”* into *“open a session, spawn the tunnel, launch llama with the right `-rpc` and `-ot` flags.”*
 
 <p align="center">
-  <img src="assets/moontail-logo.png?v=4" width="90" alt="MoonTail"/> &nbsp;
   <code>moontail --model k3.gguf</code> → session ✓ tunnel ✓ llama ✓
 </p>
 
@@ -144,7 +141,7 @@ cd server/control-plane && npm install && npm run dev
 ./build/moontail --model path/to/model.gguf
 ```
 
-You'll see the pixel comet. Then tokens.
+You'll see the startup banner. Then tokens.
 
 **Local dev (no tunnel):**
 
@@ -156,7 +153,7 @@ You'll see the pixel comet. Then tokens.
 
 ## CLI reference
 
-Running `moontail --help` prints a pixel comet (warm core, tapering cyan tail).
+Running `moontail --help` prints the MoonTail startup banner (terminal pixel art; README uses `assets/moontail-logo.png`).
 
 ```
 Usage: moontail [options] -- [llama-cli args...]
@@ -212,9 +209,11 @@ Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
 ```
 MoonTail/
+├── assets/
+│   └── moontail-logo.png  ← logo / README banner
 ├── client/
 │   ├── moontail.c       ← you are here
-│   ├── moon.h           ← pixel comet startup banner
+│   ├── moon.h           ← terminal startup banner
 │   └── protocol.h
 ├── server/
 │   ├── volunteer.c      → moontail-volunteer binary
@@ -251,7 +250,7 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 <p align="center">
-<img src="assets/moontail-logo.png?v=4" width="80" alt="MoonTail"/>
+<img src="assets/moontail-logo.png" width="280" alt="MoonTail"/>
 <br/>
-<em>MoonTail — tail the moon, split the experts</em>
+<em>tail the moon, split the experts</em>
 </p>
