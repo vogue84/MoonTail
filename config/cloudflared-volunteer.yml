@@ -1,0 +1,9 @@
+# Volunteer cloudflared tunnel — tcp ingress to localhost rpc-server only.
+# Replace TUNNEL_ID and credentials-file after `cloudflared tunnel create k3-volunteer`.
+tunnel: k3-volunteer
+credentials-file: config/.cloudflared/credentials.json
+
+ingress:
+  - hostname: volunteer-1.example.com
+    service: tcp://127.0.0.1:50052
+  - service: http_status:404
