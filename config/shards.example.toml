@@ -1,0 +1,18 @@
+# Hot-expert replication (Phase 4) — config only, no custom code.
+# Register the same expert range from multiple peer_ids in the registry.
+# Example shard manifests (volunteer --experts START END):
+#
+# peer_id=volunteer-a  experts=0-63
+# peer_id=volunteer-b  experts=0-63    # replica of hot range
+# peer_id=volunteer-c  experts=64-127
+#
+# Control plane returns first idle peer covering requested experts.
+
+replicate:
+  enabled: false
+  hot_expert_threshold: 0.05  # activate when expert activation > 5% (future telemetry)
+
+shards:
+  - peer_id: volunteer-1
+    expert_start: 0
+    expert_end: 255
