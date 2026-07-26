@@ -8,18 +8,21 @@
 #  include <windows.h>
 #endif
 
-/* Pixel UFO: W=dome, C=saucer, M=portholes, T=rim glow, D=beam tail */
+/* Pixel comet: W/Y/O=warm core, C/T/D/B=cyan tail fade (see scripts/gen-logo.py) */
 static const char * const MOONTAIL_LOGO[] = {
-    "         WW         ",
-    "        WCCC        ",
-    "      CCCCCCCC      ",
-    "     CCCCCCCCCC     ",
-    "    CCMMCCCCMMCC    ",
-    "   CCCCCCCCCCCCCC   ",
-    "    TTTTTTTTTTTT    ",
-    "     DDDDDDDDDD     ",
-    "      DDDDDD        ",
-    "       DDDD         ",
+    "                                ",
+    "                  BBBBBBBB      ",
+    "              BBBBBBBBBBBBBB    ",
+    "          BBBBBBBBBBBBBBBBBBBB  ",
+    "      DDDDDDDDDDDDDDDDDDDDDDDD  ",
+    "  TTTTTTTTTTTTTTTTTTTTTTTTTTTTT ",
+    " TTCCCCCCCCCCCCCCCCCCCCCCCCTTT  ",
+    "CCOOYYYYWWWWYYYYOOCCCCCCCCCCTT  ",
+    "CCOOYYYOOWWOOYYYYOOCCCCCCCCCT   ",
+    " TTCCCCCCCCCCCCCCCCCCCCCCCCT    ",
+    "    TTTTTTTTTTTTTTTTTTTTT       ",
+    "        DDDDDDDDDDDD            ",
+    "             BB                 ",
 };
 
 static inline void moontail_console_utf8(void) {
@@ -31,11 +34,13 @@ static inline void moontail_console_utf8(void) {
 
 static inline int moontail_px_color(char ch) {
     switch (ch) {
-    case 'M': return 201; /* porthole lights */
-    case 'W': return 255; /* dome highlight */
-    case 'C': return 51;  /* saucer hull */
-    case 'T': return 45;  /* rim glow */
-    case 'D': return 24;  /* tractor beam tail */
+    case 'W': return 255; /* white core */
+    case 'Y': return 220; /* yellow glow */
+    case 'O': return 208; /* orange rim */
+    case 'C': return 51;  /* cyan coma */
+    case 'T': return 45;  /* teal tail */
+    case 'D': return 37;  /* dark teal */
+    case 'B': return 24;  /* tail fade */
     default: return -1;
     }
 }
@@ -54,20 +59,8 @@ static inline void moontail_px(char ch, int use_color, FILE * out) {
 }
 
 static inline void moontail_print_moon(int use_color) {
-    static const char * side[] = {
-        "",
-        "",
-        "",
-        "",
-        "  \033[38;5;51mMoonTail\033[0m",
-        "  \033[2mtail the moon, split the experts\033[0m",
-        "",
-        "",
-        "",
-        "",
-    };
     int i, n = (int)(sizeof(MOONTAIL_LOGO) / sizeof(MOONTAIL_LOGO[0]));
-    const char * title = use_color ? "\033[38;5;51m" : "";
+    const char * hi = use_color ? "\033[38;5;51m" : "";
     const char * reset = use_color ? "\033[0m" : "";
 
     moontail_console_utf8();
@@ -76,15 +69,10 @@ static inline void moontail_print_moon(int use_color) {
         const char * row = MOONTAIL_LOGO[i];
         for (; *row; row++)
             moontail_px(*row, use_color, stderr);
-        if (use_color && side[i][0])
-            fprintf(stderr, "%s", side[i]);
-        else if (!use_color && i == 4)
-            fprintf(stderr, "  MoonTail");
-        else if (!use_color && i == 5)
-            fprintf(stderr, "  tail the moon, split the experts");
         fputc('\n', stderr);
     }
-    fprintf(stderr, "%s  reciprocal MoE swarm CLI%s\n\n", title, reset);
+    fprintf(stderr, "%s  MoonTail%s  \033[2mtail the moon, split the experts\033[0m\n", hi, reset);
+    fprintf(stderr, "%s  reciprocal MoE swarm CLI%s\n\n", hi, reset);
 }
 
 #endif

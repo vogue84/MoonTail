@@ -1,6 +1,6 @@
 <table>
 <tr>
-<td valign="middle"><img src="assets/moontail-logo.png" width="110" alt="MoonTail pixel UFO"/></td>
+<td valign="middle"><img src="assets/moontail-logo.png" width="140" alt="MoonTail pixel comet"/></td>
 <td valign="middle">
 <h1>MoonTail</h1>
 <p><em>tail the moon, split the experts</em></p>
@@ -144,7 +144,7 @@ cd server/control-plane && npm install && npm run dev
 ./build/moontail --model path/to/model.gguf
 ```
 
-You'll see the pixel UFO. Then tokens.
+You'll see the pixel comet. Then tokens.
 
 **Local dev (no tunnel):**
 
@@ -156,7 +156,7 @@ You'll see the pixel UFO. Then tokens.
 
 ## CLI reference
 
-Running `moontail --help` prints a pixel UFO (saucer + tractor-beam tail) beside the title.
+Running `moontail --help` prints a pixel comet (warm core, tapering cyan tail).
 
 ```
 Usage: moontail [options] -- [llama-cli args...]
@@ -214,7 +214,7 @@ Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 MoonTail/
 ├── client/
 │   ├── moontail.c       ← you are here
-│   ├── moon.h           ← pixel UFO startup banner
+│   ├── moon.h           ← pixel comet startup banner
 │   └── protocol.h
 ├── server/
 │   ├── volunteer.c      → moontail-volunteer binary
