@@ -1,6 +1,6 @@
 <table>
 <tr>
-<td valign="middle"><img src="assets/moontail-comet.svg" width="110" alt="MoonTail pixel comet"/></td>
+<td valign="middle"><img src="assets/moontail-comet.png" width="110" alt="MoonTail pixel comet"/></td>
 <td valign="middle">
 <h1>MoonTail</h1>
 <p><em>tail the moon, split the experts</em></p>
@@ -31,7 +31,7 @@ Zero central GPU. Measurement-first. ~800 lines of glue.</p>
 MoonTail is the thin layer that turns *“I want to generate tokens”* into *“open a session, spawn the tunnel, launch llama with the right `-rpc` and `-ot` flags.”*
 
 <p align="center">
-  <img src="assets/moontail-comet.svg" width="90" alt="MoonTail"/> &nbsp;
+  <img src="assets/moontail-comet.png" width="90" alt="MoonTail"/> &nbsp;
   <code>moontail --model k3.gguf</code> → session ✓ tunnel ✓ llama ✓
 </p>
 
@@ -251,7 +251,7 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 <p align="center">
-<img src="assets/moontail-comet.svg" width="80" alt="MoonTail"/>
+<img src="assets/moontail-comet.png" width="80" alt="MoonTail"/>
 <br/>
 <em>MoonTail — tail the moon, split the experts</em>
 </p>
