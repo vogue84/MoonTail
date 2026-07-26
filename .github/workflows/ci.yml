@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: LOC budget
+        run: bash scripts/check-loc.sh
+      - name: Security invariants
+        run: bash scripts/check-security.sh
+      - name: Gate 3 offline
+        run: python3 tools/gate3_depgraph.py
+      - name: Build client
+        run: |
+          gcc -O2 -Wall -std=c11 -Iclient -o swarm-cli client/swarm-cli.c
+          gcc -O2 -Wall -std=c11 -Iclient -o volunteer server/volunteer.c
+      - name: Control plane tests
+        working-directory: server/control-plane
+        run: |
+          npm install
+          npm test
