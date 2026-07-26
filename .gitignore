@@ -1,0 +1,9 @@
+/build/
+/vendor/llama.cpp/build/
+node_modules/
+server/control-plane/node_modules/
+.wrangler/
+results/*.json
+config/.cloudflared/
+*.exe
+*.obj
