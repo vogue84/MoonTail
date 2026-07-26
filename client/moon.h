@@ -3,25 +3,39 @@
 
 #include <stdio.h>
 
-/* 8-bit pixel moon — shown on MoonTail CLI startup (Claude Code crab energy) */
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#endif
+
+static inline void moontail_console_utf8(void) {
+#ifdef _WIN32
+    SetConsoleOutputCP(65001);
+    SetConsoleCP(65001);
+#endif
+}
+
 static inline void moontail_print_moon(int use_color) {
+    static const char * lines[] = {
+        "       ██       ",
+        "     ██████     ",
+        "   ██████████   ",
+        "  ████████████  ",
+        " ████··██··████ ",
+        " ████·····████  ",
+        "  ████████████  ",
+        "   ██████████   ",
+        "     ██████     ",
+        "       ██       ",
+    };
     const char * y = use_color ? "\033[38;5;229m" : "";
-    const char * d = use_color ? "\033[38;5;245m" : "";
     const char * r = use_color ? "\033[0m" : "";
+    int i;
+
+    moontail_console_utf8();
     fputc('\n', stderr);
-    fprintf(stderr, "%s", y);
-    fprintf(stderr, "        ████╗\n");
-    fprintf(stderr, "     ██████████╗\n");
-    fprintf(stderr, "   ██████████████╗\n");
-    fprintf(stderr, "  █████%s░░░%s███████╗\n", d, y);
-    fprintf(stderr, " █████%s░░░░░░░%s██████╗\n", d, y);
-    fprintf(stderr, " █████%s░░██░░░░%s█████╗\n", d, y);
-    fprintf(stderr, " █████%s░████░░░%s█████╗\n", d, y);
-    fprintf(stderr, " ██████%s░░░░░░░%s██████╗\n", d, y);
-    fprintf(stderr, "  ███████%s░░░%s███████╗\n", d, y);
-    fprintf(stderr, "   ██████████████╝\n");
-    fprintf(stderr, "     ██████████╝\n");
-    fprintf(stderr, "        ████╝%s\n", r);
+    for (i = 0; i < 10; i++)
+        fprintf(stderr, "%s%s%s\n", y, lines[i], r);
     fprintf(stderr, "%s  MoonTail%s  \033[2mreciprocal MoE swarm CLI\033[0m\n\n", y, r);
 }
 

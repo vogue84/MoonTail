@@ -18,4 +18,9 @@ if (-not (Select-String -Path "$Root/docs/SECURITY.md" -Pattern 'security contro
     Write-Host "FAIL: SECURITY.md missing version-pin policy"
     $fail = $true
 }
+git -C "$Root/vendor/llama.cpp" rev-parse HEAD 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAIL: llama.cpp submodule missing"
+    $fail = $true
+}
 if (-not $fail) { Write-Host "OK: security checks passed (PS)" } else { exit 1 }

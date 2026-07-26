@@ -18,7 +18,7 @@ if [[ -f "$ROOT/client/moontail.c" ]]; then
   grep -q 'refused: --skip-tunnel' "$ROOT/client/moontail.c" || { echo "FAIL: moontail skip-tunnel refuse"; fail=1; }
 fi
 
-if [[ ! -d "$ROOT/vendor/llama.cpp/.git" ]]; then
+if ! git -C "$ROOT/vendor/llama.cpp" rev-parse HEAD >/dev/null 2>&1; then
   echo "FAIL: llama.cpp submodule missing"; fail=1
 else
   cd "$ROOT/vendor/llama.cpp"
