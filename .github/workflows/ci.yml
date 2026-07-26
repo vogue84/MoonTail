@@ -20,8 +20,8 @@ jobs:
         run: python3 tools/gate3_depgraph.py
       - name: Build client
         run: |
-          gcc -O2 -Wall -std=c11 -Iclient -o swarm-cli client/swarm-cli.c
-          gcc -O2 -Wall -std=c11 -Iclient -o volunteer server/volunteer.c
+          gcc -O2 -Wall -std=c11 -Iclient -o moontail client/moontail.c
+          gcc -O2 -Wall -std=c11 -Iclient -o moontail-volunteer server/volunteer.c
       - name: Control plane tests
         working-directory: server/control-plane
         run: |

@@ -9,7 +9,7 @@ KimiK3 enforces:
 1. **`rpc-server` binds `127.0.0.1` only** — never `0.0.0.0`, never port-forward to the public internet.
 2. **Cross-machine traffic uses Cloudflare Tunnel + Access only** — session-scoped credentials from the control plane.
 3. **One active ggml-rpc client per volunteer `rpc-server`** (v1 pairing model).
-4. **`--skip-tunnel` is client-only (swarm-cli)** for localhost dev; refused when `--worker` is not localhost. **volunteer.c has no tunnel bypass.**
+4. **`--skip-tunnel` is client-only (moontail)** for localhost dev; refused when `--worker` is not localhost. **volunteer.c has no tunnel bypass.**
 
 ## Version pin (security control)
 

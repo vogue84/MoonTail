@@ -1,4 +1,4 @@
-# Expert tensors offloaded to RPC (localhost proxy from swarm-cli session).
+# Expert tensors offloaded to RPC (localhost proxy from moontail session).
 # Apply via: llama-cli ... $(grep -v '^#' config/tensor-overrides.k3 | tr '\n' ' ')
 -ot blk\.*\.ffn_gate_exps=RPC0
 -ot blk\.*\.ffn_up_exps=RPC0

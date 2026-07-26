@@ -11,7 +11,7 @@ if (-not (Select-String -Path "$Root/client/moontail.c" -Pattern 'worker_is_loca
     $fail = $true
 }
 if (-not (Select-String -Path "$Root/client/moontail.c" -Pattern 'refused: --skip-tunnel' -Quiet)) {
-    Write-Host "FAIL: swarm-cli.c must refuse --skip-tunnel for non-localhost --worker"
+    Write-Host "FAIL: moontail.c must refuse --skip-tunnel for non-localhost --worker"
     $fail = $true
 }
 if (-not (Select-String -Path "$Root/docs/SECURITY.md" -Pattern 'security control, not a version preference' -Quiet)) {
