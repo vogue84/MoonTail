@@ -1,25 +1,15 @@
-<p align="center">
-<pre align="center">
-       ██       
-     ██████     
-   ██████████   
-  ████████████  
- ████··██··████ 
- ████·····████  
-  ████████████  
-   ██████████   
-     ██████     
-       ██       
-</pre>
-</p>
-
-<h1 align="center">MoonTail</h1>
-
-<p align="center">
-  <strong>The CLI for reciprocal MoE inference.</strong><br/>
-  Run frontier-scale models on your machine. Offload expert compute to a volunteer swarm.<br/>
-  Zero central GPU. Measurement-first. ~800 lines of glue.
-</p>
+<table>
+<tr>
+<td valign="middle"><img src="assets/moontail-comet.svg" width="110" alt="MoonTail pixel comet"/></td>
+<td valign="middle">
+<h1>MoonTail</h1>
+<p><em>tail the moon, split the experts</em></p>
+<p><strong>The CLI for reciprocal MoE inference.</strong><br/>
+Run frontier-scale models on your machine. Offload expert compute to a volunteer swarm.<br/>
+Zero central GPU. Measurement-first. ~800 lines of glue.</p>
+</td>
+</tr>
+</table>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"/></a>
@@ -40,18 +30,10 @@
 
 MoonTail is the thin layer that turns *“I want to generate tokens”* into *“open a session, spawn the tunnel, launch llama with the right `-rpc` and `-ot` flags.”*
 
-```
-       ██       
-     ██████     
-   ██████████   
-  ████████████  
- ████··██··████   moontail --model k3.gguf
- ████·····████    → session ✓ tunnel ✓ llama ✓
-  ████████████  
-   ██████████   
-     ██████     
-       ██       
-```
+<p align="center">
+  <img src="assets/moontail-comet.svg" width="90" alt="MoonTail"/> &nbsp;
+  <code>moontail --model k3.gguf</code> → session ✓ tunnel ✓ llama ✓
+</p>
 
 > Spawn it once. You'll know.
 
@@ -162,7 +144,7 @@ cd server/control-plane && npm install && npm run dev
 ./build/moontail --model path/to/model.gguf
 ```
 
-You'll see the moon. Then tokens.
+You'll see the pixel comet. Then tokens.
 
 **Local dev (no tunnel):**
 
@@ -174,21 +156,17 @@ You'll see the moon. Then tokens.
 
 ## CLI reference
 
+Running `moontail --help` prints a Colibrì-style pixel comet (magenta spark, cyan moon, teal tail) beside the title.
+
 ```
-       ██       
-     ██████     
-   ██████████   
-
-  MoonTail  reciprocal MoE swarm CLI
-
 Usage: moontail [options] -- [llama-cli args...]
 
   --worker URL       Control plane (default http://127.0.0.1:8787)
   --model PATH       GGUF checkpoint
   --llama PATH       llama-cli binary
   --skip-tunnel      Dev only — localhost worker required
-  --quiet, -q        Skip moon banner
-  -h, --help         Show help (moon included)
+  --quiet, -q        Skip startup banner
+  -h, --help         Show help (banner included)
 ```
 
 ---
@@ -236,7 +214,7 @@ Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 MoonTail/
 ├── client/
 │   ├── moontail.c       ← you are here
-│   ├── moon.h           ← 8-bit moon banner
+│   ├── moon.h           ← pixel comet startup banner
 │   └── protocol.h
 ├── server/
 │   ├── volunteer.c      → moontail-volunteer binary
@@ -273,11 +251,7 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 <p align="center">
-<pre align="center">
-   ██████████   
-  ████████████  
- ████··██··████ 
-  MoonTail — tail the moon, split the experts
-   ██████████   
-</pre>
+<img src="assets/moontail-comet.svg" width="80" alt="MoonTail"/>
+<br/>
+<em>MoonTail — tail the moon, split the experts</em>
 </p>

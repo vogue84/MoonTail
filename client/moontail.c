@@ -59,7 +59,7 @@ static void usage(const char * argv0) {
         "  --model PATH       GGUF model (-m)\n"
         "  --local-rpc PORT   Dev only: 127.0.0.1:PORT when --worker is localhost\n"
         "  --skip-tunnel      Dev only: same; refused if --worker is not localhost\n"
-        "  --quiet, -q        Skip moon banner\n",
+        "  --quiet, -q        Skip startup banner\n",
         argv0, g_worker_url);
 }
 
