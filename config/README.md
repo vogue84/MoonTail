@@ -6,6 +6,7 @@
 | `kimi-linear-48b-proxy.config.json` | Gate 3 dry-run proxy (27 layers) |
 | `tensor-overrides.kimi-k2` | `-ot` patterns for K2 routed experts → RPC0 |
 | `shard-manifest.example.json` | Expert shard ranges for volunteers |
+| `official-worker.url` | Official `MOONTAIL_WORKER` (maintainers only; users join this URL) |
 | `cloudflare-access-policy.example.json` | Zero Trust deny-by-default template |
 | `MIN_LLAMA_VERSION` | Security pin (b8492+) |
 | `features.json` | `FEATURE_CREDITS` documentation mirror |

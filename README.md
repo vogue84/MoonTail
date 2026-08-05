@@ -18,171 +18,96 @@
 
 ---
 
-## Join the swarm (volunteers + prompters)
+## One official swarm — join, don't host
 
-**You cannot prompt until you volunteer.** Run `init` on a machine with a GPU, join the waiting room, then use `prompt` from that same machine (or any machine using your saved `~/.moontail/config`).
+MoonTail runs **a single community control plane** operated by the **MoonTail project only**.
 
-### What you need before `init`
+| You are | What to do |
+|---------|------------|
+| **GPU owner** | Install → point at the **official** `MOONTAIL_WORKER` → `moontail init --accept-terms` → `moontail prompt` |
+| **Not a maintainer** | **Do not** deploy your own Cloudflare Worker or fork the registry — you won't be part of the real swarm |
+
+The official server URL is in [`config/official-worker.url`](config/official-worker.url) (also printed by `install.sh`).
+
+---
+
+## Join the swarm
+
+**You cannot prompt until you volunteer.** Volunteer your GPU first, wait for the swarm to be ready, then queue a prompt.
+
+### Before you start
 
 | Requirement | Notes |
 |-------------|--------|
-| **A running MoonTail server** | URL from whoever hosts the Worker — see [Host the server](#host-the-server-operator) below if that's you |
-| **NVIDIA (or compatible) GPU + drivers** | Enough VRAM for Kimi K2 (or a community Q4 split GGUF) |
+| **Official `MOONTAIL_WORKER`** | From [`config/official-worker.url`](config/official-worker.url) — **not** your own Worker |
+| **GPU + drivers** | Enough VRAM for Kimi K2 (or a community Q4 split GGUF) |
 | **K2 weights** | Community split GGUF **or** `bash scripts/pull-k2.sh` with `HF_TOKEN` |
-| **cloudflared tunnel** | Outbound tunnel from your machine; hostname set in `MOONTAIL_TUNNEL_HOST` |
-| **Accept GPU lending terms** | `--accept-terms` — read [docs/VOLUNTEER_TERMS.md](docs/VOLUNTEER_TERMS.md) |
+| **cloudflared tunnel** | Outbound tunnel; hostname you register with the project / in `MOONTAIL_TUNNEL_HOST` |
+| **Terms** | `--accept-terms` — [docs/VOLUNTEER_TERMS.md](docs/VOLUNTEER_TERMS.md) |
 
-### Step 1 — Install (every device)
+### Step 1 — Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rockybalboan19/MoonTail/main/install.sh | bash
 export PATH="$HOME/.moontail/bin:$PATH"
 ```
 
-Needs: `git`, `gcc`, `curl`, `cmake` (for llama.cpp), `cloudflared`, `python3` (optional, for HF pull).
+Needs: `git`, `gcc`, `curl`, `cmake`, `cloudflared`, `python3` (optional).
 
-### Step 2 — Point at the swarm
-
-Replace with your operator's Worker URL and **your** tunnel hostname:
+### Step 2 — Connect to the official swarm
 
 ```bash
-export MOONTAIL_WORKER=https://moontail.YOUR-SUBDOMAIN.workers.dev
+# Official URL only (see config/official-worker.url)
+export MOONTAIL_WORKER=https://moontail.example.workers.dev
+
+# Your tunnel hostname (unique per GPU machine)
 export MOONTAIL_TUNNEL_HOST=volunteer-YOURNAME.example.com
-```
 
-Optional — stream-convert K2 from Hugging Face (slow; needs license acceptance on HF):
-
-```bash
+# Optional: HF stream-convert
 export HF_TOKEN=hf_...
 ```
 
-Or put a community GGUF path in `~/.moontail/config` after first init (`model=/path/to/K2-00001-of-....gguf`).
+Or after install, set `worker=` in `~/.moontail/config` from `official-worker.url`.
 
-### Step 3 — Join (volunteer your GPU)
+### Step 3 — Volunteer your GPU (join)
 
 ```bash
 moontail init --accept-terms
 ```
 
-This will:
+This:
 
-1. Generate a **peer_id** + **peer_token** (saved in `~/.moontail/config`)
-2. Start **moontail-volunteer** (`rpc-server` on **127.0.0.1 only** + your cloudflared tunnel)
-3. **Register** with the swarm and show the waiting room
+1. Saves **peer_id** + **peer_token** in `~/.moontail/config`
+2. Starts **moontail-volunteer** (`rpc-server` on **127.0.0.1 only** + your tunnel)
+3. Registers with the **official** MoonTail server
 
-You should see either:
+You'll see:
 
-- `Waiting for N more user(s) to run moontail init` — need more volunteers (`MIN_VOLUNTEERS`, default **3**)
-- `Swarm ready` — pool is big enough to run prompts
-
-Check anytime:
+- `Waiting for N more user(s)…` — need more GPUs (`MIN_VOLUNTEERS`, default **3**)
+- `Swarm ready` — you can prompt
 
 ```bash
 moontail status
 ```
 
-**Repeat Step 2–3 on other machines** (different GPUs, different `MOONTAIL_TUNNEL_HOST` each). Each device is one swarm member.
+**More GPUs = more people run Step 1–3** on other machines (each with its own tunnel hostname).
 
-### Step 4 — Prompt (after you joined + swarm is ready)
+### Step 4 — Prompt (after join + swarm ready)
 
-Only works if **you already ran `init --accept-terms`** on this machine (config has `peer_id` + `peer_token`):
+Must have run **`init --accept-terms`** on this machine first:
 
 ```bash
-export MOONTAIL_WORKER=https://moontail.YOUR-SUBDOMAIN.workers.dev
+export MOONTAIL_WORKER=https://moontail.example.workers.dev   # official URL only
 moontail prompt "Hello Kimi K2"
 ```
 
-FIFO queue → when a slot opens → session → llama-cli runs K2 with expert offload via the swarm.
+FIFO queue → session → Kimi K2 via llama.cpp + volunteer expert offload.
 
 ---
 
-## Host the server (operator)
+## What MoonTail is
 
-The **server** is a **Cloudflare Worker + Durable Object** — no GPU, no model weights. It only pairs volunteers, holds the queue, and issues tunnel credentials for sessions.
-
-### 1. Cloudflare account
-
-- [Cloudflare Workers](https://developers.cloudflare.com/workers/) enabled on your account
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) logged in:
-
-```bash
-npm install -g wrangler
-wrangler login
-```
-
-### 2. Deploy the control plane
-
-```bash
-git clone https://github.com/rockybalboan19/MoonTail.git
-cd MoonTail/server/control-plane
-npm install
-npx wrangler deploy
-```
-
-Note the URL printed, e.g. `https://moontail.<your-subdomain>.workers.dev`. **Share this as `MOONTAIL_WORKER`.**
-
-Tune the swarm in [`wrangler.toml`](server/control-plane/wrangler.toml):
-
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `MIN_VOLUNTEERS` | `3` | Waiting room until this many peers registered |
-| `MAX_CONCURRENT_PROMPTS` | `3` | Max prompts running at once |
-| `PEER_STALE_SEC` | `120` | Drop volunteers with no heartbeat |
-
-For a small test, set `MIN_VOLUNTEERS = "1"` and redeploy.
-
-### 3. Cloudflare Access secrets (required for prompts)
-
-Without these, `/session` returns **503** — volunteers can register and `status` works, but **no one can prompt**.
-
-1. **Zero Trust** → [Access → Service Auth → Service Tokens](https://one.dash.cloudflare.com/) → **Create token**
-2. Copy **Client ID** and **Client Secret**
-3. Attach to the Worker:
-
-```bash
-cd server/control-plane
-npx wrangler secret put CF_ACCESS_CLIENT_ID
-npx wrangler secret put CF_ACCESS_CLIENT_SECRET
-```
-
-4. Create an **Access application** for each volunteer tunnel hostname (e.g. `volunteer-1.example.com`). Policy: **deny by default**, allow only that **service token**. Template: [`config/cloudflare-access-policy.example.json`](config/cloudflare-access-policy.example.json)
-
-### 4. Volunteer tunnels (per GPU machine)
-
-Each volunteer runs **cloudflared** outbound — not a port you open on your router.
-
-```bash
-cloudflared tunnel create moontail-vol-1
-# Edit config/cloudflared-volunteer.yml → tunnel id, credentials, hostname
-cloudflared tunnel route dns moontail-vol-1 volunteer-1.example.com
-```
-
-Volunteer sets `MOONTAIL_TUNNEL_HOST=volunteer-1.example.com` before `moontail init --accept-terms`.
-
-### 5. Local dev server (optional)
-
-```bash
-cd server/control-plane
-# Create .dev.vars (gitignored) with CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET
-npm run dev
-# → http://127.0.0.1:8787  use as MOONTAIL_WORKER for local testing
-```
-
-### 6. Verify
-
-```bash
-curl -sf https://moontail.YOUR-SUBDOMAIN.workers.dev/status | python3 -m json.tool
-```
-
-Expect `volunteer_pool_size`, `waiting_for`, `swarm_ready`.
-
-Full operator checklist: [docs/KIMI_K2_LAUNCH.md](docs/KIMI_K2_LAUNCH.md)
-
----
-
-## The deal (one paragraph)
-
-**MoonTail** splits Kimi K2-Instruct across home GPUs: your machine runs attention/router locally; routed expert FFN runs on another volunteer via llama.cpp `-ot` + ggml-rpc over an authenticated Cloudflare tunnel. **Reciprocity:** donate GPU time with `init --accept-terms`, then get queue access with `prompt`. Research preview — ggml-rpc is upstream PoC; see [docs/SECURITY.md](docs/SECURITY.md).
+**MoonTail** splits **Kimi K2-Instruct** across home GPUs: your machine runs attention/router; routed expert FFN runs on another volunteer via `-ot` + ggml-rpc over Cloudflare Tunnel + Access. **Reciprocity:** donate GPU with `init`, then get queue access with `prompt`. Research preview — see [docs/SECURITY.md](docs/SECURITY.md).
 
 ---
 
@@ -195,7 +120,7 @@ flowchart TB
         CFc[cloudflared access tcp]
         LL[llama.cpp backbone + router]
     end
-    subgraph cloud [Cloudflare]
+    subgraph cloud [Official MoonTail server]
         W[Worker API]
         R[Registry DO]
         A[Access policy]
@@ -216,26 +141,24 @@ flowchart TB
 
 ---
 
-## CLI reference
+## CLI
 
-| Command | Who | What |
-|---------|-----|------|
-| `moontail init --accept-terms` | **Everyone first** | Volunteer GPU + join swarm |
-| `moontail status` | Everyone | Pool size / waiting room / queue |
-| `moontail prompt "…"` | Registered volunteers only | FIFO queued K2 inference |
-
-Dev only: `--skip-tunnel` with `MOONTAIL_WORKER=http://127.0.0.1:8787`.
+| Command | What |
+|---------|------|
+| `moontail init --accept-terms` | **Join** — volunteer GPU + register with official swarm |
+| `moontail status` | Waiting room / pool / queue |
+| `moontail prompt "…"` | Queue a prompt (must have joined first) |
 
 ---
 
-## Security (infra only)
+## Security
 
 | Layer | Protects |
 |-------|----------|
-| **127.0.0.1 rpc-server** | No public ggml-rpc bind |
-| **Cloudflare Access** | Sessions fail closed without operator secrets |
-| **peer_token** | Register / queue / release auth |
-| **Rate limits** | Register / queue / session spam |
+| **127.0.0.1 rpc-server** | No public ggml-rpc |
+| **Cloudflare Access** | Tunnel auth on official server |
+| **peer_token** | Register / queue / release |
+| **Single control plane** | One operator; no rogue Workers in the product path |
 
 [docs/SECURITY.md](docs/SECURITY.md) · [docs/VOLUNTEER_TERMS.md](docs/VOLUNTEER_TERMS.md)
 
@@ -243,20 +166,21 @@ Dev only: `--skip-tunnel` with `MOONTAIL_WORKER=http://127.0.0.1:8787`.
 
 ## Weights
 
-Full K2 GGUF is **~500GB+** class at Q4. Fastest path: a community **split GGUF** (point `model=` at part 1 in `~/.moontail/config`). Slow path: `bash scripts/pull-k2.sh` with `HF_TOKEN`.
+K2 Q4 is **~500GB+**. Fastest: community **split GGUF** → `model=` in `~/.moontail/config`. Slow: `bash scripts/pull-k2.sh`.
 
-Uses upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) `master` (`deepseek2`).
+Upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) `master` (`deepseek2`).
 
 ---
 
-## Contributing
+## Contributing (code)
+
+Glue / gates / client patches welcome. **Server hosting is not a community operation** — see [docs/HOSTING.md](docs/HOSTING.md) (maintainers only).
 
 ```bash
-bash scripts/check-loc.sh
-bash scripts/check-security.sh
+bash scripts/check-loc.sh && bash scripts/check-security.sh
 ```
 
-Developers: [docs/DEVELOPER.md](docs/DEVELOPER.md) · Gates: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
+[docs/DEVELOPER.md](docs/DEVELOPER.md) · [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
 ---
 

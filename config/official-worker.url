@@ -1,0 +1,4 @@
+# Official MoonTail control plane — maintained by the project only.
+# Do not run your own Worker; join this URL with moontail init.
+# Update this file when you deploy (one line, no comments in the active URL):
+https://moontail.example.workers.dev

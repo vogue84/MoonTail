@@ -32,14 +32,20 @@ if command -v cmake >/dev/null; then
 fi
 
 mkdir -p "$HOME/.moontail"
+OFFICIAL="$(grep -v '^#' "$ROOT/config/official-worker.url" 2>/dev/null | grep -v '^$' | head -1 || true)"
 if [[ "${MOONTAIL_VERIFY:-}" == "1" ]]; then
   bash scripts/check-security.sh
 fi
 echo "Installed: build/moontail build/moontail-volunteer"
 echo ""
 echo "  export PATH=\"\$HOME/.moontail/bin:\$PATH\""
-echo "  export HF_TOKEN=hf_...   # optional: stream-convert Kimi K2 from Hugging Face"
-echo "  export MOONTAIL_WORKER=https://your-worker.workers.dev"
+if [[ -n "$OFFICIAL" ]]; then
+  echo "  export MOONTAIL_WORKER=$OFFICIAL   # official swarm (do not use your own Worker)"
+else
+  echo "  export MOONTAIL_WORKER=<see config/official-worker.url>"
+fi
+echo "  export MOONTAIL_TUNNEL_HOST=volunteer-YOU.example.com"
+echo "  export HF_TOKEN=hf_...   # optional: stream-convert Kimi K2"
 echo "  moontail init --accept-terms"
 echo "  moontail status"
 echo "  moontail prompt \"hello\""

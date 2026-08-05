@@ -158,7 +158,7 @@ sequenceDiagram
 
 ## 3. Control plane API
 
-Base URL: Worker deploy URL (local dev: `http://127.0.0.1:8787`).
+Base URL: **official** `MOONTAIL_WORKER` from [`config/official-worker.url`](../config/official-worker.url) only (maintainers operate one server; local dev: `http://127.0.0.1:8787`).
 
 ### `GET /health`
 
@@ -487,7 +487,7 @@ Full checklist: [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md).
 |-----|---------|---------|
 | `MIN_VOLUNTEERS` | 3 | Swarm not ready until this many `/register` |
 | `MAX_CONCURRENT_PROMPTS` | 3 | Cap simultaneous prompt sessions |
-| `MOONTAIL_WORKER` | (dev localhost) | Production Worker URL |
+| `MOONTAIL_WORKER` | Official swarm URL ([`config/official-worker.url`](../config/official-worker.url)) |
 | `MOONTAIL_TUNNEL_HOST` | — | Volunteer tunnel hostname |
 | `CF_ACCESS_CLIENT_ID/SECRET` | — | Required for `/session` in production |
 
@@ -540,5 +540,6 @@ MoonTail/
 | [README.md](../README.md) | Users / contributors | Quick start, CLI summary |
 | [SECURITY.md](SECURITY.md) | Operators | Policy, CVE pin, checklist |
 | [BENCHMARKS.md](BENCHMARKS.md) | Perf / QA | Gate definitions, Phase 0 deliverables |
-| [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md) | Operators | K2 deploy + HN checklist |
+| [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md) | Maintainers | K2 deploy + HN checklist |
+| [HOSTING.md](HOSTING.md) | **Maintainers only** | Deploy official Worker (not for users) |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Quick pointer | One-page index to this guide |

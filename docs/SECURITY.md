@@ -20,11 +20,13 @@ KimiK3 / MoonTail enforces:
 
 3. **peer_token** on register, queue, session, release — SHA-256 stored server-side.
 
-4. **One active ggml-rpc client per volunteer `rpc-server`** (v1 pairing model).
+4. **Single official control plane** — MoonTail server is maintainer-operated only; users join via `config/official-worker.url`, not self-hosted Workers.
 
-5. **`--skip-tunnel` is client-only (moontail)** for localhost dev; refused when worker is not localhost. **volunteer.c has no tunnel bypass.**
+5. **One active ggml-rpc client per volunteer `rpc-server`** (v1 pairing model).
 
-6. **Rate limits** on register / queue / session (see registry).
+6. **`--skip-tunnel` is client-only (moontail)** for localhost dev; refused when worker is not localhost. **volunteer.c has no tunnel bypass.**
+
+7. **Rate limits** on register / queue / session (see registry).
 
 
 
