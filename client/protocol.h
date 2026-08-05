@@ -9,14 +9,18 @@
 #define K3_MAX_TOKEN       2048
 #define K3_MAX_HOST        256
 #define K3_MAX_EXPERTS     384
+#define K3_DEFAULT_RPC_PORT 50052
 
 typedef struct k3_session {
+    char transport[32];
     char tunnel_host[K3_MAX_HOST];
+    char rpc_host[K3_MAX_HOST];
     char access_token[K3_MAX_TOKEN];
     char access_client_id[K3_MAX_TOKEN];
     char access_client_secret[K3_MAX_TOKEN];
+    int  rpc_port;
     int  local_port;
-    char rpc_endpoint[64]; /* 127.0.0.1:PORT for llama -rpc */
+    char rpc_endpoint[320]; /* host:port for llama -rpc */
 } k3_session;
 
 typedef struct k3_register {

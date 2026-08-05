@@ -20,6 +20,7 @@
   <a href="docs/DEVELOPER.md">Developer guide</a> ·
   <a href="docs/SECURITY.md">Security</a> ·
   <a href="docs/BENCHMARKS.md">Benchmarks</a> ·
+  <a href="docs/TAILSCALE.md">Tailscale mesh</a> ·
   <a href="docs/VOLUNTEER_TERMS.md">Volunteer terms</a>
 </p>
 
@@ -29,7 +30,7 @@
 
 One target model runs today: **[Kimi K2-Instruct](https://huggingface.co/moonshotai/Kimi-K2-Instruct)** (`deepseek2`, 61 layers, 384 experts, 8 experts/token) — upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) master, tensor offload via `-ot`, the same `moontail init` / `moontail prompt` CLI everywhere. Full stack below ↓
 
-MoonTail is deliberately thin (~800 lines of C + config): it does not implement MoE math, custom kernels, or a new wire protocol. It pairs volunteers, opens authenticated tunnels, and execs `llama-cli`. **Reciprocity is the product:** you cannot prompt until you volunteer. Donate routed-expert cycles with `init`, wait for the swarm, then queue with `prompt`. There is no SLA on tok/s yet — there *is* a hard guarantee on architecture: rpc-server never binds public, sessions fail closed without Access, and performance claims wait on [measurement gates](docs/BENCHMARKS.md).
+MoonTail is deliberately thin (~800 lines of C + config): it does not implement MoE math, custom kernels, or a new wire protocol. It pairs volunteers, opens transport to expert RPC, and execs `llama-cli`. **Reciprocity is the product:** you cannot prompt until you volunteer. Cross-machine traffic uses **Tailscale mesh** (default) or Cloudflare Tunnel + Access — see [docs/TAILSCALE.md](docs/TAILSCALE.md).
 
 ```bash
 $ moontail init --accept-terms
@@ -139,15 +140,26 @@ curl -fsSL https://raw.githubusercontent.com/rockybalboan19/MoonTail/main/instal
 export PATH="$HOME/.moontail/bin:$PATH"
 ```
 
-### 2. Connect to the swarm
+### 2. Connect to the swarm (Tailscale)
+
+Install [Tailscale](https://tailscale.com/download) and join the operator's tailnet. Then:
 
 ```bash
 export MOONTAIL_WORKER=$(grep -v '^#' config/official-worker.url | grep -v '^$' | head -1)
-export MOONTAIL_TUNNEL_HOST=volunteer-YOURNAME.example.com   # your cloudflared hostname
+export MOONTAIL_TRANSPORT=tailscale
+export MOONTAIL_TAILSCALE_HOST=$(tailscale ip -4)   # optional — auto-detected at init
 export HF_TOKEN=hf_...   # optional: stream-convert weights
 ```
 
-Set `model=` in `~/.moontail/config` to your GGUF path after weights are ready.
+PowerShell:
+
+```powershell
+$env:MOONTAIL_WORKER = "https://moontailai.yash-d-sharma-2021.workers.dev"
+$env:MOONTAIL_TRANSPORT = "tailscale"
+$env:MOONTAIL_TAILSCALE_HOST = (tailscale ip -4)
+```
+
+Full guide: [docs/TAILSCALE.md](docs/TAILSCALE.md). Cloudflare Access transport is also supported — see [docs/DEVELOPER.md](docs/DEVELOPER.md).
 
 ### 3. Get Kimi K2 weights
 
@@ -179,7 +191,7 @@ Read [VOLUNTEER_TERMS.md](docs/VOLUNTEER_TERMS.md) before `init` — you are len
 
 | Command | What |
 |---------|------|
-| `moontail init --accept-terms` | Join as volunteer — rpc-server + tunnel + register |
+| `moontail init --accept-terms` | Join as volunteer — rpc-server + Tailscale serve + register |
 | `moontail status` | Pool size, swarm ready, queue depth |
 | `moontail prompt "…"` | FIFO queue → session → llama-cli |
 
