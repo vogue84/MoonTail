@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MoonTail shard manifest",
+  "type": "object",
+  "required": ["model", "expert_ranges"],
+  "properties": {
+    "model": { "type": "string" },
+    "expert_ranges": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/range" }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "required": ["layer_start", "layer_end", "expert_start", "expert_end"],
+      "properties": {
+        "layer_start": { "type": "integer", "minimum": 0 },
+        "layer_end": { "type": "integer", "minimum": 0 },
+        "expert_start": { "type": "integer", "minimum": 0 },
+        "expert_end": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

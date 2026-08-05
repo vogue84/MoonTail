@@ -8,11 +8,13 @@
 #define K3_MAX_URL         512
 #define K3_MAX_TOKEN       2048
 #define K3_MAX_HOST        256
-#define K3_MAX_EXPERTS     256
+#define K3_MAX_EXPERTS     384
 
 typedef struct k3_session {
     char tunnel_host[K3_MAX_HOST];
     char access_token[K3_MAX_TOKEN];
+    char access_client_id[K3_MAX_TOKEN];
+    char access_client_secret[K3_MAX_TOKEN];
     int  local_port;
     char rpc_endpoint[64]; /* 127.0.0.1:PORT for llama -rpc */
 } k3_session;

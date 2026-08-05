@@ -13,7 +13,7 @@ volunteer_pool=$(curl -sf "$WORKER/health" 2>/dev/null | grep -o 'volunteer_pool
 achieved=0
 for ((i=0; i<B; i++)); do
   if curl -sf -X POST "$WORKER/session" -H "Content-Type: application/json" \
-      -d '{"expert_start":0,"expert_end":255}' >/dev/null 2>&1; then
+      -d '{"expert_start":0,"expert_end":383}' >/dev/null 2>&1; then
     achieved=$((achieved + 1))
   else
     break

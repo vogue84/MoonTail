@@ -8,6 +8,13 @@ if grep -rE '0\.0\.0\.0' "$ROOT/server" "$ROOT/client" 2>/dev/null | grep -v che
   echo "FAIL: non-localhost rpc-server bind"; fail=1
 fi
 
+grep -q 'ACCESS_TOKEN_TTL_SEC' "$ROOT/server/control-plane/wrangler.toml" \
+  || { echo "FAIL: ACCESS_TOKEN_TTL_SEC not configured"; fail=1; }
+
+if grep -rE '0\.0\.0\.0' "$ROOT/docs" "$ROOT/config" 2>/dev/null | grep -v check-security; then
+  echo "FAIL: 0.0.0.0 in docs/examples"; fail=1
+fi
+
 if [[ -f "$ROOT/server/volunteer.c" ]]; then
   grep -q '127.0.0.1' "$ROOT/server/volunteer.c" || { echo "FAIL: volunteer.c localhost bind"; fail=1; }
   grep -qE 'skip[-_]tunnel|skip_tunnel' "$ROOT/server/volunteer.c" && { echo "FAIL: volunteer skip-tunnel"; fail=1; }

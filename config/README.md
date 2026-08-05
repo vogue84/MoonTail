@@ -2,15 +2,14 @@
 
 | File | Purpose |
 |------|---------|
-| `kimi-linear-48b-proxy.config.json` | **Default Gate 3 dry-run** — Kimi-Linear-48B-A3B stand-in (27 layers). Provisional only. |
-| `config.json` | Deprecated alias of proxy config; use `kimi-linear-48b-proxy.config.json`. |
-| `tensor-overrides.k3` | llama.cpp `-ot` patterns for expert RPC offload. |
-| `MIN_LLAMA_VERSION` | Security pin (b8492+). |
-
-When real **Kimi K3** weights land, add `kimi-k3.config.json` from HF and run:
+| `kimi-k2.example.config.json` | Kimi K2-Instruct (61 layers, 384 experts, deepseek2) |
+| `kimi-linear-48b-proxy.config.json` | Gate 3 dry-run proxy (27 layers) |
+| `tensor-overrides.kimi-k2` | `-ot` patterns for K2 routed experts → RPC0 |
+| `shard-manifest.example.json` | Expert shard ranges for volunteers |
+| `cloudflare-access-policy.example.json` | Zero Trust deny-by-default template |
+| `MIN_LLAMA_VERSION` | Security pin (b8492+) |
+| `features.json` | `FEATURE_CREDITS` documentation mirror |
 
 ```bash
-python tools/gate3_depgraph.py config/kimi-k3.config.json
+python tools/gate3_depgraph.py config/kimi-k2.example.config.json
 ```
-
-Expect `architecture_template: kimi_k3` and Block AttnRes in the dependency graph.

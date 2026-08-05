@@ -7,13 +7,12 @@
     "local_stateful": ["kda_ssm", "mla_kv_cache", "attention"],
     "expert_shardable": ["ffn_gate_exps", "ffn_up_exps", "ffn_down_exps"]
   },
-  "kimi_k3": {
-    "id": "kimi_k3",
-    "label": "Kimi K3 (Block AttnRes + KDA + Stable LatentMoE)",
-    "block_attn_res": true,
-    "between_experts": ["attn_norm", "block_attn_res", "attention_kda_or_mla", "ffn_norm", "router", "shared_expert"],
-    "local_stateful": ["block_attn_res_block_history", "kda_ssm", "mla_kv_cache", "attention"],
-    "expert_shardable": ["ffn_gate_exps", "ffn_up_exps", "ffn_down_exps"],
-    "block_attn_res_note": "Block AttnRes attends over completed block representations across depth; requires requester-local block state — not delegatable with expert-only remote segments."
+  "deepseek2": {
+    "id": "deepseek2",
+    "label": "Kimi K2-Instruct (deepseek2 MLA-MoE)",
+    "block_attn_res": false,
+    "between_experts": ["attn_norm", "attention_mla", "ffn_norm", "router", "shared_expert"],
+    "local_stateful": ["mla_kv_cache", "attention"],
+    "expert_shardable": ["ffn_gate_exps", "ffn_up_exps", "ffn_down_exps"]
   }
 }

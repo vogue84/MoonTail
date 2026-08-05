@@ -1,0 +1,8 @@
+{
+  "credits_per_session_second": 1,
+  "queue_cost": 10,
+  "contribution_bootstrap_hours": 48,
+  "queue_job_ttl_hours": 24,
+  "insufficient_credits_policy": "reject_402",
+  "queue_runner": "not implemented — assigned jobs wait for future moontail runner"
+}

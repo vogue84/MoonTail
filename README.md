@@ -4,9 +4,9 @@
 
 <p align="center">
   <em>tail the moon, split the experts</em><br/>
-  <strong>The CLI for reciprocal MoE inference.</strong><br/>
-  Run frontier-scale models on your machine. Offload expert compute to a volunteer swarm.<br/>
-  Zero central GPU. Measurement-first. ~800 lines of glue.
+  <strong>Volunteer your GPU. Queue for Kimi K2.</strong><br/>
+  Reciprocal MoE inference — home GPUs, frontier model, zero central GPU.<br/>
+  <strong>Research preview</strong> — ~800 lines of glue around llama.cpp + Cloudflare.
 </p>
 
 <p align="center">
@@ -18,32 +18,35 @@
 
 ---
 
-## What is MoonTail?
+## The deal
 
-**MoonTail** is the user-facing CLI for the **Reciprocal MoE Swarm** — a zero-cost architecture where:
+**MoonTail** is a reciprocal swarm for **Kimi K2-Instruct**:
 
-- **Your machine** runs the *backbone*: attention, routing, shared experts, speculative verify (via [llama.cpp](https://github.com/ggml-org/llama.cpp))
-- **Volunteer GPUs** run *routed expert FFN* shards over an authenticated tunnel
-- **Cloudflare** handles session pairing and access — never your tensor data
+1. **`moontail init --accept-terms`** — volunteer your home GPU (localhost `rpc-server` + outbound tunnel)
+2. **Waiting room** — until enough peers join (`MIN_VOLUNTEERS`, default 3)
+3. **`moontail prompt "…"`** — FIFO queue; when a slot opens, llama.cpp runs backbone local + expert FFN on a volunteer via `-ot` + ggml-rpc
+4. **You must volunteer to prompt** — reciprocity, not a free public API
 
-MoonTail is the thin layer that turns *“I want to generate tokens”* into *“open a session, spawn the tunnel, launch llama with the right `-rpc` and `-ot` flags.”*
-
-<p align="center">
-  <code>moontail --model k3.gguf</code> → session ✓ tunnel ✓ llama ✓
-</p>
-
-> Spawn it once. You'll know.
+> ggml-rpc is upstream proof-of-concept. We bind **127.0.0.1 only** and require **Cloudflare Access** on tunnels in production. See [docs/SECURITY.md](docs/SECURITY.md) and [docs/VOLUNTEER_TERMS.md](docs/VOLUNTEER_TERMS.md).
 
 ---
 
-## Why it exists
+## Quick start
 
-| Problem | MoonTail's answer |
-|--------|-------------------|
-| 2.8T MoE won't fit on one GPU | Expert tensors go to RPC volunteers; backbone stays local |
-| Can't trust random RPC on the internet | ggml-rpc binds **127.0.0.1 only**; Cloudflare Tunnel + Access is the real API |
-| Don't rewrite inference | llama.cpp + `-ot` tensor overrides — no custom MoE engine |
-| Don't promise fake tok/s | Six measurement **gates** before scheduler code ships |
+```bash
+curl -fsSL https://raw.githubusercontent.com/ysharmcode/MoonTail/main/install.sh | bash
+export MOONTAIL_WORKER=https://your-worker.workers.dev
+export MOONTAIL_TUNNEL_HOST=volunteer-1.example.com   # your cloudflared hostname
+export HF_TOKEN=hf_...   # optional: stream-convert K2 from Hugging Face
+
+moontail init --accept-terms
+moontail status
+moontail prompt "Hello Kimi K2"
+```
+
+**Weights:** full K2 GGUF is large (~500GB+ class at Q4). For a quick try, use a community split GGUF and set `model=` in `~/.moontail/config`, or run `bash scripts/pull-k2.sh` (hours, streamed HF convert).
+
+Uses upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) `master` (`deepseek2` arch).
 
 ---
 
@@ -56,20 +59,17 @@ flowchart TB
         CFc[cloudflared access tcp]
         LL[llama.cpp backbone + router]
     end
-
     subgraph cloud [Cloudflare]
         W[Worker API]
         R[Registry DO]
         A[Access policy]
     end
-
     subgraph vol [Volunteer GPU outbound only]
         V[moontail-volunteer]
         T[cloudflared tunnel]
         RPC[rpc-server 127.0.0.1]
     end
-
-    MT -->|POST /session| W
+    MT -->|POST /queue /session| W
     W --> R
     MT --> CFc
     CFc --> A --> T --> RPC
@@ -78,179 +78,54 @@ flowchart TB
     V --> T
 ```
 
-### Data flow (one token, one MoE layer)
+---
 
-```mermaid
-sequenceDiagram
-    participant U as You
-    participant M as moontail
-    participant L as llama.cpp
-    participant C as CF Access
-    participant V as Volunteer RPC
+## CLI
 
-    U->>M: moontail --model k3.gguf
-    M->>M: POST /session
-    M->>C: cloudflared access tcp
-    M->>L: exec llama -rpc 127.0.0.1:PORT -ot experts=RPC0
-    L->>L: attention + router local
-    L->>C: expert hidden state
-    C->>V: authenticated tunnel
-    V->>V: top-k expert FFN
-    V-->>L: expert output
-    L->>L: residual + next layer
 ```
+moontail init --accept-terms   Volunteer GPU + join swarm
+moontail status                Pool / queue
+moontail prompt "text"         FIFO queued Kimi K2 prompt
+```
+
+Dev only: `--skip-tunnel` with localhost `--worker` (refused otherwise).
 
 ---
 
-## Quick start
+## Security (infra only)
 
-### 1. Build MoonTail
+| Layer | Protects |
+|-------|----------|
+| **127.0.0.1 rpc-server** | No public ggml-rpc bind |
+| **Cloudflare Access** | Sessions fail closed without CF secrets |
+| **peer_token** | Register / queue / release auth |
+| **Rate limits** | Register / queue / session spam |
 
-```bash
-git clone https://github.com/ysharmcode/MoonTail.git
-cd MoonTail
-git submodule update --init --recursive
-
-make                    # → build/moontail, build/moontail-volunteer
-# or: cmake -B build && cmake --build build
-```
-
-### 2. Build llama.cpp with RPC
-
-```bash
-cmake -B vendor/llama.cpp/build -DGGML_RPC=ON
-cmake --build vendor/llama.cpp/build --config Release
-```
-
-### 3. Run the control plane (local dev)
-
-```bash
-cd server/control-plane && npm install && npm run dev
-# → http://127.0.0.1:8787
-```
-
-### 4. Start a volunteer
-
-```bash
-./build/moontail-volunteer --worker http://127.0.0.1:8787
-```
-
-### 5. Generate
-
-```bash
-./build/moontail --model path/to/model.gguf
-```
-
-You'll see the startup banner. Then tokens.
-
-**Local dev (no tunnel):**
-
-```bash
-./build/moontail --skip-tunnel --model model.gguf   # only with --worker on localhost
-```
+Full policy: [docs/SECURITY.md](docs/SECURITY.md). Launch checklist: [docs/KIMI_K2_LAUNCH.md](docs/KIMI_K2_LAUNCH.md).
 
 ---
 
-## CLI reference
-
-Running `moontail --help` prints the MoonTail startup banner (terminal pixel art; README uses `assets/moontail-logo.png`).
-
-```
-Usage: moontail [options] -- [llama-cli args...]
-
-  --worker URL       Control plane (default http://127.0.0.1:8787)
-  --model PATH       GGUF checkpoint
-  --llama PATH       llama-cli binary
-  --skip-tunnel      Dev only — localhost worker required
-  --quiet, -q        Skip startup banner
-  -h, --help         Show help (banner included)
-```
-
----
-
-## Security model
-
-MoonTail treats **ggml-rpc as localhost-only compute**, not a public API. Upstream llama.cpp [explicitly warns](https://github.com/ggml-org/llama.cpp/tree/master/tools/rpc) against exposing rpc-server to untrusted networks (CVE-2026-34159 class).
-
-| Layer | What it protects |
-|-------|------------------|
-| **Cloudflare Tunnel + Access** | Unauthenticated internet → volunteer |
-| **Version pin ≥ b8492** | Authenticated requester → volunteer RCE class |
-| **`--skip-tunnel` guard** | Accidental prod bypass — refused unless worker is localhost |
-| **One session per volunteer** | Upstream single-client rpc-server model |
-
-Full policy: [docs/SECURITY.md](docs/SECURITY.md)
-
----
-
-## Measurement gates (v17)
+## Measurement gates
 
 We don't ship scheduler fantasies. We ship numbers.
 
-| Gate | What it measures |
-|------|------------------|
-| **1** | Local backbone ms/round |
-| **2** | Speculative acceptance rate |
-| **3** | Dependency graph (K3 Block AttnRes vs proxy config) |
-| **4** | Expert RPC latency (localhost) |
-| **5** | Concurrent streams vs **volunteer pairing ceiling** |
-| **6** | Auth tunnel success (Tunnel+Access only) |
-
 ```bash
-python tools/gate3_depgraph.py
-MODEL=model.gguf bash tools/gate1_backbone.sh
+python tools/gate3_depgraph.py config/kimi-k2.example.config.json
+MODEL=model.gguf bash tools/gate4_expert_rpc.sh
 ```
 
-Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
-
----
-
-## Repository map
-
-```
-MoonTail/
-├── assets/
-│   └── moontail-logo.png  ← logo / README banner
-├── client/
-│   ├── moontail.c       ← you are here
-│   ├── moon.h           ← terminal startup banner
-│   └── protocol.h
-├── server/
-│   ├── volunteer.c      → moontail-volunteer binary
-│   └── control-plane/   → Cloudflare Worker + Registry DO
-├── tools/gate*.sh       → measurement gates
-├── config/              → tensor overrides, tunnel templates
-└── vendor/llama.cpp     → inference engine (submodule)
-```
-
----
-
-## Performance honesty
-
-```
-tok/s ≈ (accepted_tokens_per_round × 1000) / (backbone_ms + expert_rpc_ms + rtt_ms)
-```
-
-MoonTail does **not** promise 8–10 tok/s. It promises to **measure** the four numbers that decide whether that's possible. Conservative baseline until gates pass: **~1–4 tok/s**.
+Details: [docs/BENCHMARKS.md](docs/BENCHMARKS.md) · Developers: [docs/DEVELOPER.md](docs/DEVELOPER.md)
 
 ---
 
 ## Contributing
 
-1. `bash scripts/check-loc.sh` — stay under 2.8k LOC custom code  
-2. `bash scripts/check-security.sh` — localhost rpc, skip-tunnel guards  
-3. Run gates before claiming perf improvements  
+1. `bash scripts/check-loc.sh`
+2. `bash scripts/check-security.sh`
+3. Run gates before claiming perf improvements
 
 ---
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
----
-
-<p align="center">
-<img src="assets/moontail-logo.png" width="280" alt="MoonTail"/>
-<br/>
-<em>tail the moon, split the experts</em>
-</p>

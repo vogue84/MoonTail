@@ -24,8 +24,11 @@ static char g_worker_url[K3_MAX_URL] = "http://127.0.0.1:8787";
 static char g_rpc_bin[512] = "rpc-server";
 static char g_tunnel_config[512] = "config/cloudflared-volunteer.yml";
 static char g_peer_id[64] = "volunteer-1";
+static char g_peer_token[128] = "";
+static char g_tunnel_host[K3_MAX_HOST] = "";
+static char g_model_path[512] = "";
 static int  g_expert_start = 0;
-static int  g_expert_end = 255;
+static int  g_expert_end = 383;
 static int  g_rpc_port = K3_RPC_PORT;
 
 static void on_signal(int sig) { (void)sig; g_running = 0; }
@@ -37,18 +40,50 @@ static void usage(const char * argv0) {
         "  --rpc PATH         rpc-server binary\n"
         "  --tunnel CFG       cloudflared config\n"
         "  --peer-id ID       Volunteer id\n"
+        "  --peer-token TOK   Auth token from moontail init\n"
+        "  --tunnel-host HOST Cloudflare tunnel hostname\n"
+        "  --model PATH       GGUF for rpc-server -m (from moontail init)\n"
         "  --experts START END  Expert shard range\n"
         "  --rpc-port PORT    Local rpc port (127.0.0.1 only)\n",
         argv0);
 }
 
+static void json_escape(const char * in, char * out, size_t cap) {
+    size_t j = 0;
+    for (size_t i = 0; in[i] && j + 2 < cap; i++) {
+        char c = in[i];
+        if (c == '"' || c == '\\') { out[j++] = '\\'; if (j >= cap - 1) break; }
+        out[j++] = c;
+    }
+    out[j] = 0;
+}
+
 static int register_peer(int busy) {
-    char cmd[4096];
+    char tpath[512], cmd[1600], body[1024];
+    const char * home = getenv("HOME");
+#ifdef _WIN32
+    if (!home) home = getenv("USERPROFILE");
+#endif
+    if (home) snprintf(tpath, sizeof(tpath), "%s/.moontail/reg.json", home);
+    else snprintf(tpath, sizeof(tpath), ".moontail/reg.json");
+
+    char esc_id[128], esc_tok[256], esc_host[512];
+    json_escape(g_peer_id, esc_id, sizeof(esc_id));
+    json_escape(g_peer_token, esc_tok, sizeof(esc_tok));
+    const char * host = g_tunnel_host[0] ? g_tunnel_host : g_peer_id;
+    json_escape(host, esc_host, sizeof(esc_host));
+    snprintf(body, sizeof(body),
+        "{\"peer_id\":\"%s\",\"peer_token\":\"%s\",\"tunnel_host\":\"%s\","
+        "\"expert_start\":%d,\"expert_end\":%d,\"busy\":%d}",
+        esc_id, esc_tok, esc_host, g_expert_start, g_expert_end, busy);
+
+    FILE * tf = fopen(tpath, "w");
+    if (!tf) return -1;
+    fputs(body, tf);
+    fclose(tf);
     snprintf(cmd, sizeof(cmd),
-        "curl -sf -X POST \"%s/register\" -H \"Content-Type: application/json\" "
-        "-d \"{\\\"peer_id\\\":\\\"%s\\\",\\\"tunnel_host\\\":\\\"%s\\\","
-        "\\\"expert_start\\\":%d,\\\"expert_end\\\":%d,\\\"busy\\\":%d}\" 2>/dev/null",
-        g_worker_url, g_peer_id, g_peer_id, g_expert_start, g_expert_end, busy);
+        "curl -sf -X POST \"%s/register\" -H \"Content-Type: application/json\" -d @\"%s\" 2>/dev/null",
+        g_worker_url, tpath);
     return system(cmd) == 0 ? 0 : -1;
 }
 
@@ -79,6 +114,12 @@ int main(int argc, char ** argv) {
             { strncpy(g_tunnel_config, argv[++i], sizeof(g_tunnel_config) - 1); continue; }
         if (strcmp(argv[i], "--peer-id") == 0 && i + 1 < argc)
             { strncpy(g_peer_id, argv[++i], sizeof(g_peer_id) - 1); continue; }
+        if (strcmp(argv[i], "--peer-token") == 0 && i + 1 < argc)
+            { strncpy(g_peer_token, argv[++i], sizeof(g_peer_token) - 1); continue; }
+        if (strcmp(argv[i], "--tunnel-host") == 0 && i + 1 < argc)
+            { strncpy(g_tunnel_host, argv[++i], sizeof(g_tunnel_host) - 1); continue; }
+        if (strcmp(argv[i], "--model") == 0 && i + 1 < argc)
+            { strncpy(g_model_path, argv[++i], sizeof(g_model_path) - 1); continue; }
         if (strcmp(argv[i], "--experts") == 0 && i + 2 < argc) {
             g_expert_start = atoi(argv[++i]);
             g_expert_end = atoi(argv[++i]);
@@ -91,6 +132,11 @@ int main(int argc, char ** argv) {
         if (strcmp(argv[i], "-h") == 0) { usage(argv[0]); return 0; }
     }
 
+    if (!g_peer_token[0]) {
+        fprintf(stderr, "peer_token required — run moontail init --accept-terms\n");
+        return 1;
+    }
+
     signal(SIGINT, on_signal);
     signal(SIGTERM, on_signal);
 
@@ -101,6 +147,8 @@ int main(int argc, char ** argv) {
 #ifndef _WIN32
     pid_t rpc_pid = fork();
     if (rpc_pid == 0) {
+        if (g_model_path[0])
+            execlp(g_rpc_bin, g_rpc_bin, "-H", host_bind, "-p", host_port, "-m", g_model_path, (char *)NULL);
         execlp(g_rpc_bin, g_rpc_bin, "-H", host_bind, "-p", host_port, (char *)NULL);
         fprintf(stderr, "exec rpc-server failed\n");
         _exit(127);
@@ -114,7 +162,13 @@ int main(int argc, char ** argv) {
         }
     }
 #else
-    char * rpc_args[] = { (char *)g_rpc_bin, (char *)"-H", host_bind, (char *)"-p", host_port, NULL };
+    char * rpc_args[16];
+    int ra = 0;
+    rpc_args[ra++] = (char *)g_rpc_bin;
+    rpc_args[ra++] = (char *)"-H"; rpc_args[ra++] = host_bind;
+    rpc_args[ra++] = (char *)"-p"; rpc_args[ra++] = host_port;
+    if (g_model_path[0]) { rpc_args[ra++] = (char *)"-m"; rpc_args[ra++] = g_model_path; }
+    rpc_args[ra] = NULL;
     if (spawn_process(g_rpc_bin, rpc_args, &g_rpc_pi) != 0) {
         fprintf(stderr, "rpc-server spawn failed\n");
         return 1;

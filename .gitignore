@@ -4,6 +4,8 @@ node_modules/
 server/control-plane/node_modules/
 .wrangler/
 results/*.json
+config/hf-kimi-k2-meta/*
+!config/hf-kimi-k2-meta/checksums.json
 config/.cloudflared/
 *.exe
 *.obj

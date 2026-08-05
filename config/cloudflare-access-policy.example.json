@@ -1,0 +1,16 @@
+{
+  "_comment": "Cloudflare Zero Trust — deny-by-default Access app for volunteer tunnel hostname",
+  "decision": "deny",
+  "include": [
+    {
+      "service_token": {
+        "token_id": "YOUR_SERVICE_TOKEN_ID"
+      }
+    }
+  ],
+  "exclude": [],
+  "require": [
+    "service_token"
+  ],
+  "purpose": "Only session-scoped cloudflared access tcp clients with CF Access service token may reach rpc-server via tunnel."
+}
