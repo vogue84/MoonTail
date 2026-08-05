@@ -15,7 +15,11 @@ echo "llama.cpp submodule @ $LLAMA_SHA"
 
 CC="${CC:-gcc}"
 mkdir -p build
-$CC -O2 -Wall -std=c11 -Iclient -o build/moontail client/moontail.c
+MT_LIBS=""
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*) MT_LIBS="-lws2_32" ;;
+esac
+$CC -O2 -Wall -std=c11 -Iclient -o build/moontail client/moontail.c client/cli.c $MT_LIBS
 $CC -O2 -Wall -std=c11 -Iclient -o build/moontail-volunteer server/volunteer.c
 
 if command -v cmake >/dev/null; then
@@ -31,21 +35,34 @@ if command -v cmake >/dev/null; then
   done
 fi
 
-mkdir -p "$HOME/.moontail"
+mkdir -p "$HOME/.moontail/bin"
+cp build/moontail build/moontail-volunteer "$HOME/.moontail/bin/" 2>/dev/null || true
+
 OFFICIAL="$(grep -v '^#' "$ROOT/config/official-worker.url" 2>/dev/null | grep -v '^$' | head -1 || true)"
+if [[ -n "$OFFICIAL" ]]; then
+  echo "$OFFICIAL" > "$HOME/.moontail/worker.url"
+fi
+
 if [[ "${MOONTAIL_VERIFY:-}" == "1" ]]; then
   bash scripts/check-security.sh
 fi
-echo "Installed: build/moontail build/moontail-volunteer"
+
+echo ""
+echo "Installed to ~/.moontail/bin/"
 echo ""
 echo "  export PATH=\"\$HOME/.moontail/bin:\$PATH\""
-if [[ -n "$OFFICIAL" ]]; then
-  echo "  export MOONTAIL_WORKER=$OFFICIAL   # official swarm (do not use your own Worker)"
-else
-  echo "  export MOONTAIL_WORKER=<see config/official-worker.url>"
+echo ""
+echo "One command to join the swarm (Tailscale must be running):"
+echo "  moontail setup"
+echo ""
+echo "Or open the interactive shell:"
+echo "  moontail"
+echo ""
+
+if command -v tailscale >/dev/null && [[ -n "${OFFICIAL:-}" ]]; then
+  if [[ "${MOONTAIL_AUTO_SETUP:-1}" == "1" ]]; then
+    echo "==> Running moontail setup (set MOONTAIL_AUTO_SETUP=0 to skip)"
+    export PATH="$HOME/.moontail/bin:$PATH"
+    exec moontail setup
+  fi
 fi
-echo "  export MOONTAIL_TUNNEL_HOST=volunteer-YOU.example.com"
-echo "  export HF_TOKEN=hf_...   # optional: stream-convert Kimi K2"
-echo "  moontail init --accept-terms"
-echo "  moontail status"
-echo "  moontail prompt \"hello\""

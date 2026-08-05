@@ -3,6 +3,7 @@
  */
 #include "protocol.h"
 #include "moon.h"
+#include "cli.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,17 +27,17 @@ static void mt_sleep(int sec) { Sleep(sec * 1000); }
 static void mt_sleep(int sec) { sleep(sec); }
 #endif
 
-static char g_worker[K3_MAX_URL] = "http://127.0.0.1:8787";
+char g_worker[K3_MAX_URL] = "http://127.0.0.1:8787";
 static char g_config[512] = "";
-static char g_peer_id[64] = "";
+char g_peer_id[64] = "";
 static char g_peer_token[128] = "";
 static char g_model[512] = "";
 static char g_llama[512] = "llama-cli";
 static char g_volunteer[512] = "build/moontail-volunteer";
 static char g_tensor[512] = "config/tensor-overrides.kimi-k2";
 static char g_tunnel_host[K3_MAX_HOST] = "";
-static char g_tailscale_host[K3_MAX_HOST] = "";
-static char g_transport[32] = "";
+char g_tailscale_host[K3_MAX_HOST] = "";
+char g_transport[32] = "tailscale";
 static char g_session_peer[64] = "";
 static char g_job_id[64] = "";
 static int  g_quiet = 0;
@@ -67,7 +68,7 @@ static void ensure_peer_token(void) {
     }
 }
 
-static void config_load(void) {
+void mt_config_load(void) {
     config_path();
     const char * w = getenv("MOONTAIL_WORKER");
     if (w) strncpy(g_worker, w, sizeof(g_worker) - 1);
@@ -95,7 +96,7 @@ static void config_load(void) {
     fclose(f);
 }
 
-static void config_save(void) {
+void mt_config_save(void) {
     config_path();
 #ifndef _WIN32
     const char * home = getenv("HOME");
@@ -142,7 +143,11 @@ static char * body_tmp_path(char * buf, size_t cap) {
 
 static int http_get(const char * path, char * out, size_t cap) {
     char cmd[1024];
+#ifdef _WIN32
+    snprintf(cmd, sizeof(cmd), "curl.exe -sf \"%s%s\" 2>nul", g_worker, path);
+#else
     snprintf(cmd, sizeof(cmd), "curl -sf \"%s%s\" 2>/dev/null", g_worker, path);
+#endif
     FILE * fp = popen(cmd, "r");
     if (!fp) return -1;
     out[0] = 0;
@@ -162,7 +167,12 @@ static int http_post_json(const char * path, const char * body, char * out, size
     if (!tf) return -1;
     fputs(body, tf);
     fclose(tf);
-    snprintf(cmd, sizeof(cmd), "curl -sf -X POST \"%s%s\" -H \"Content-Type: application/json\" -d @\"%s\" 2>/dev/null",
+    snprintf(cmd, sizeof(cmd),
+#ifdef _WIN32
+        "curl.exe -sf -X POST \"%s%s\" -H \"Content-Type: application/json\" -d @\"%s\" 2>nul",
+#else
+        "curl -sf -X POST \"%s%s\" -H \"Content-Type: application/json\" -d @\"%s\" 2>/dev/null",
+#endif
              g_worker, path, tpath);
     FILE * fp = popen(cmd, "r");
     if (!fp) return -1;
@@ -327,7 +337,7 @@ static int run_llama_prompt(const k3_session * s, const char * prompt) {
 #endif
 }
 
-static int cmd_status(void) {
+int mt_cmd_status(void) {
     char buf[2048];
     if (http_get("/status", buf, sizeof(buf)) != 0) {
         fprintf(stderr, "cannot reach %s/status\n", g_worker);
@@ -357,13 +367,42 @@ static void pull_model_path(void) {
     pclose(f);
 }
 
-static int cmd_init(int accept_terms) {
+#ifdef _WIN32
+#  include <io.h>
+#  define mt_access _access
+#else
+#  include <unistd.h>
+#  define mt_access access
+#endif
+
+static void resolve_bin_paths(void) {
+    const char * home = getenv("HOME");
+#ifdef _WIN32
+    if (!home) home = getenv("USERPROFILE");
+#endif
+    if (!home) return;
+    char vol[512], llama[512];
+#ifdef _WIN32
+    snprintf(vol, sizeof(vol), "%s\\.moontail\\bin\\moontail-volunteer.exe", home);
+    snprintf(llama, sizeof(llama), "%s\\.moontail\\bin\\llama-cli.exe", home);
+#else
+    snprintf(vol, sizeof(vol), "%s/.moontail/bin/moontail-volunteer", home);
+    snprintf(llama, sizeof(llama), "%s/.moontail/bin/llama-cli", home);
+#endif
+    if (mt_access(vol, 0) == 0) strncpy(g_volunteer, vol, sizeof(g_volunteer) - 1);
+    if (mt_access(llama, 0) == 0) strncpy(g_llama, llama, sizeof(g_llama) - 1);
+}
+
+int mt_cmd_init(int accept_terms) {
     if (!accept_terms) {
-        fprintf(stderr, "run: moontail init --accept-terms  (see docs/VOLUNTEER_TERMS.md)\n");
+        fprintf(stderr, "run: moontail setup --accept-terms  (see docs/VOLUNTEER_TERMS.md)\n");
         return 1;
     }
-    config_load();
+    mt_config_load();
+    resolve_bin_paths();
     ensure_peer_token();
+    if (!g_transport[0]) strncpy(g_transport, "tailscale", sizeof(g_transport) - 1);
+    if (!strcmp(g_transport, "tailscale") && !g_tailscale_host[0]) mt_detect_tailscale();
     if (!g_peer_id[0]) snprintf(g_peer_id, sizeof(g_peer_id), "mt-%ld", (long)time(NULL));
     if (!g_model[0]) {
         fprintf(stderr, "Pulling Kimi K2-Instruct from Hugging Face (needs HF_TOKEN)...\n");
@@ -375,7 +414,7 @@ static int cmd_init(int accept_terms) {
         const char * tr = getenv("MOONTAIL_TRANSPORT");
         if (tr) strncpy(g_transport, tr, sizeof(g_transport) - 1);
     }
-    config_save();
+    mt_config_save();
     char cmd[4096];
     snprintf(cmd, sizeof(cmd),
         "%s --worker \"%s\" --peer-id \"%s\" --peer-token \"%s\" --model \"%s\" --experts 0 383",
@@ -401,7 +440,7 @@ static int cmd_init(int accept_terms) {
         int wait = json_int(buf, "waiting_for");
         int pool = json_int(buf, "volunteer_pool_size");
         if (wait <= 0) {
-            printf("Volunteer confirmed. Swarm ready (%d GPUs).\nRun: moontail prompt \"...\"\n", pool);
+            printf("Volunteer confirmed. Swarm ready (%d GPUs).\nType 'prompt hello' in the shell, or: moontail prompt \"...\"\n", pool);
             return 0;
         }
         printf("Waiting for %d more user(s) to run moontail init (%d joined).\n", wait, pool);
@@ -410,10 +449,10 @@ static int cmd_init(int accept_terms) {
     }
 }
 
-static int cmd_prompt(const char * prompt) {
-    config_load();
+int mt_cmd_prompt(const char * prompt) {
+    mt_config_load();
     if (!g_peer_id[0] || !g_peer_token[0] || !g_model[0]) {
-        fprintf(stderr, "run moontail init --accept-terms first\n");
+        fprintf(stderr, "run moontail setup first (or type 'join' in the shell)\n");
         return 1;
     }
     char esc_id[128], esc_tok[256], esc_prompt[8192], body[9216], buf[4096];
@@ -455,17 +494,11 @@ static int cmd_prompt(const char * prompt) {
 }
 
 static void usage(const char * p) {
-    moontail_print_moon(1);
-    fprintf(stderr,
-        "  %s init --accept-terms   Volunteer GPU + join swarm\n"
-        "  %s status                Pool / queue\n"
-        "  %s prompt \"text\"        Run queued Kimi K2 prompt\n"
-        "  --skip-tunnel            Dev only (localhost worker)\n",
-        p, p, p);
+    mt_print_help(p);
 }
 
 int main(int argc, char ** argv) {
-    config_load();
+    mt_config_load();
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--skip-tunnel")) {
             if (!worker_is_localhost()) {
@@ -475,15 +508,24 @@ int main(int argc, char ** argv) {
             g_skip_tunnel = 1;
         } else if (!strcmp(argv[i], "-q") || !strcmp(argv[i], "--quiet")) g_quiet = 1;
     }
-    if (argc < 2) { usage(argv[0]); return 0; }
+    if (argc < 2) return mt_cmd_repl();
+    if (!strcmp(argv[1], "setup")) {
+        int ok = 0;
+        for (int i = 2; i < argc; i++) if (!strcmp(argv[i], "--accept-terms")) ok = 1;
+        return mt_cmd_setup(ok);
+    }
+    if (!strcmp(argv[1], "help") || !strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
+        mt_print_help(argv[0]);
+        return 0;
+    }
     if (!strcmp(argv[1], "init")) {
         int ok = 0;
         for (int i = 2; i < argc; i++) if (!strcmp(argv[i], "--accept-terms")) ok = 1;
-        return cmd_init(ok);
+        return mt_cmd_init(ok);
     }
-    if (!strcmp(argv[1], "status")) return cmd_status();
-    if (!strcmp(argv[1], "prompt") && argc > 2) return cmd_prompt(argv[2]);
-    if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) { usage(argv[0]); return 0; }
+    if (!strcmp(argv[1], "status")) return mt_cmd_status();
+    if (!strcmp(argv[1], "prompt") && argc > 2) return mt_cmd_prompt(argv[2]);
+    if (!strcmp(argv[1], "shell") || !strcmp(argv[1], "repl")) return mt_cmd_repl();
     usage(argv[0]);
     return 1;
 }

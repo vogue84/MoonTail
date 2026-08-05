@@ -74,10 +74,17 @@ $env:MOONTAIL_TAILSCALE_HOST = (tailscale ip -4)
 
 ### 3. Join + prompt
 
-```bash
-moontail init --accept-terms
-moontail status
-moontail prompt "Hello Kimi K2"
+```powershell
+# From MoonTail repo (after install.sh) or with PATH set:
+moontail setup
+```
+
+Or interactive:
+
+```powershell
+moontail
+# moontail> join
+# moontail> prompt hello
 ```
 
 `init` starts:

@@ -174,11 +174,26 @@ Architecture: `deepseek2` on upstream llama.cpp `master`. Config reference: [`co
 
 ### 4. Volunteer, then prompt
 
-```bash
-moontail init --accept-terms    # lend GPU — required before you can prompt
-moontail status                 # waiting room / pool / queue depth
+**One command** (after install + Tailscale logged in):
 
-moontail prompt "Hello Kimi K2" # after swarm ready
+```bash
+moontail setup
+```
+
+That detects your Tailscale IP, connects to the official swarm, and starts volunteering your GPU.
+
+**Interactive shell** (type `help` anytime):
+
+```bash
+moontail
+```
+
+```
+moontail> help
+moontail> join        # volunteer GPU
+moontail> status      # swarm / queue
+moontail> prompt hello Kimi K2
+moontail> quit
 ```
 
 You'll see `Waiting for N more user(s)…` until enough peers register, then `Swarm ready`. **More GPUs in the swarm = shorter queues for everyone.**

@@ -23,7 +23,7 @@ jobs:
         run: python3 tools/gate3_depgraph.py config/kimi-k2.example.config.json
       - name: Build client
         run: |
-          gcc -O2 -Wall -std=c11 -Iclient -o moontail client/moontail.c
+          gcc -O2 -Wall -std=c11 -Iclient -o moontail client/moontail.c client/cli.c
           gcc -O2 -Wall -std=c11 -Iclient -o moontail-volunteer server/volunteer.c
 
   k2-gates:

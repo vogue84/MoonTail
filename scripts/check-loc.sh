@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LOC budget: client<600 server<2000 tools+scripts<400 total<2900
+# LOC budget: client<750 server<2000 tools+scripts<400 total<3000
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -22,9 +22,9 @@ total=$((client + server + aux + docs_sec))
 echo "LOC: client=$client server=$server tools=$tools scripts=$scripts docs/SECURITY=$docs_sec total=$total"
 
 fail=0
-[[ $client -gt 600 ]] && echo "FAIL: client $client > 600" && fail=1
+[[ $client -gt 750 ]] && echo "FAIL: client $client > 750" && fail=1
 [[ $server -gt 2000 ]] && echo "FAIL: server $server > 2000" && fail=1
 [[ $aux -gt 400 ]] && echo "FAIL: tools+scripts $aux > 400" && fail=1
-[[ $total -gt 2900 ]] && echo "FAIL: total $total > 2900" && fail=1
+[[ $total -gt 3000 ]] && echo "FAIL: total $total > 3000" && fail=1
 
 [[ $fail -eq 0 ]] && echo "OK: within LOC budget" || exit 1
