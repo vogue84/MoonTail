@@ -25,7 +25,7 @@ MoonTail runs **a single community control plane** operated by the **MoonTail pr
 | You are | What to do |
 |---------|------------|
 | **GPU owner** | Install → point at the **official** `MOONTAIL_WORKER` → `moontail init --accept-terms` → `moontail prompt` |
-| **Not a maintainer** | **Do not** deploy your own Cloudflare Worker or fork the registry — you won't be part of the real swarm |
+| **Not a maintainer** | **Do not** deploy your own control plane — server source is private; join the official swarm only |
 
 The official server URL is in [`config/official-worker.url`](config/official-worker.url) (also printed by `install.sh`).
 
@@ -158,7 +158,7 @@ flowchart TB
 | **127.0.0.1 rpc-server** | No public ggml-rpc |
 | **Cloudflare Access** | Tunnel auth on official server |
 | **peer_token** | Register / queue / release |
-| **Single control plane** | One operator; no rogue Workers in the product path |
+| **Single control plane** | Closed-source server (private **MoontailAI** repo); one operator |
 
 [docs/SECURITY.md](docs/SECURITY.md) · [docs/VOLUNTEER_TERMS.md](docs/VOLUNTEER_TERMS.md)
 
@@ -174,7 +174,7 @@ Upstream [llama.cpp](https://github.com/ggml-org/llama.cpp) `master` (`deepseek2
 
 ## Contributing (code)
 
-Glue / gates / client patches welcome. **Server hosting is not a community operation** — see [docs/HOSTING.md](docs/HOSTING.md) (maintainers only).
+Glue / gates / client patches welcome. **Control plane is closed source** (private **MoontailAI** repo, maintainers only). This repo is **join-only** — client + volunteer.
 
 ```bash
 bash scripts/check-loc.sh && bash scripts/check-security.sh

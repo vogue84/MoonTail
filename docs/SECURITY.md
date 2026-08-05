@@ -20,7 +20,7 @@ KimiK3 / MoonTail enforces:
 
 3. **peer_token** on register, queue, session, release — SHA-256 stored server-side.
 
-4. **Single official control plane** — MoonTail server is maintainer-operated only; users join via `config/official-worker.url`, not self-hosted Workers.
+4. **Single official control plane** — server is closed source (private **MoontailAI** repo, maintainers only). Users join via `config/official-worker.url`.
 
 5. **One active ggml-rpc client per volunteer `rpc-server`** (v1 pairing model).
 

@@ -25,11 +25,6 @@ jobs:
         run: |
           gcc -O2 -Wall -std=c11 -Iclient -o moontail client/moontail.c
           gcc -O2 -Wall -std=c11 -Iclient -o moontail-volunteer server/volunteer.c
-      - name: Control plane tests
-        working-directory: server/control-plane
-        run: |
-          npm install
-          npm test
 
   k2-gates:
     if: github.event_name == 'workflow_dispatch'

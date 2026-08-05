@@ -59,8 +59,8 @@ Pull weights: `bash scripts/pull-k2.sh` or community Q4 split GGUF. Config: `con
 |-----------|------|------|
 | **moontail** | `client/moontail.c` | Requester CLI: session, tunnel, llama exec |
 | **moontail-volunteer** | `server/volunteer.c` | Supervises `rpc-server` (127.0.0.1) + outbound `cloudflared tunnel` |
-| **Control plane Worker** | `server/control-plane/worker.ts` | HTTP router: `/health`, `/register`, `/session`, `/session/release` |
-| **Registry DO** | `server/control-plane/registry.ts` | Durable Object: peer table, session pairing, Access creds |
+| **Control plane Worker** | **MoontailAI** (private repo) | HTTP router: `/health`, `/register`, `/session`, `/session/release` |
+| **Registry DO** | **MoontailAI** (private repo) | Durable Object: peer table, session pairing, Access creds |
 | **llama.cpp** | `vendor/llama.cpp` | Inference engine (submodule, security-pinned) |
 | **Gates / metadata** | `tools/gate*.sh`, `tools/gate3_depgraph.py` | Measurement and HF metadata ingestion |
 | **Config** | `config/*` | Tensor overrides, shard manifests, tunnel templates |
@@ -253,7 +253,7 @@ Always **403** — peer list requires an active session path; no public peer enu
 - **TTL cap:** `ACCESS_TOKEN_TTL_SEC` capped at `SESSION_TTL_SEC + 300` (5 min grace).
 - **Persistence:** peer map stored in Durable Object storage key `peers`.
 
-Worker env vars (`server/control-plane/wrangler.toml`):
+Worker env vars (set in **MoontailAI** `wrangler.toml` or Worker secrets):
 
 | Var | Default | Purpose |
 |-----|---------|---------|
@@ -428,10 +428,9 @@ gcc -O2 -Wall -std=c11 -Iclient -o moontail-volunteer server/volunteer.c
 # llama.cpp with RPC
 cmake -S vendor/llama.cpp -B vendor/llama.cpp/build -DGGML_RPC=ON
 cmake --build vendor/llama.cpp/build --config Release --target rpc-server llama-bench llama-cli
-
-# Control plane
-cd server/control-plane && npm install && npm run dev
 ```
+
+Control plane dev lives in the private **MoontailAI** repo (`npm install && npm run dev` there).
 
 ### CI
 
@@ -439,7 +438,6 @@ cd server/control-plane && npm install && npm run dev
 
 - LOC budget, security checks, Gate 3 offline
 - Client/volunteer compile
-- Control plane tests
 
 Optional `k2-gates` job (`workflow_dispatch`): HF metadata fetch, GGML_RPC build, Gate 4 when `K2_PROXY_GGUF` var set.
 
@@ -501,7 +499,7 @@ Prompts **must** use `/queue` then `/session` with `job_id`. Weights: `scripts/p
 |------|---------|---------------|
 | `FEATURE_CREDITS` | `0` | Gate 7 |
 
-Set in `server/control-plane/wrangler.toml` or Worker secrets. Mirror in `config/features.json` for documentation.
+Set in **MoontailAI** `wrangler.toml` or Worker secrets. Mirror in `config/features.json` for documentation.
 
 ---
 
@@ -514,8 +512,7 @@ MoonTail/
 │   ├── moon.h              Terminal banner
 │   └── protocol.h          Shared constants / session struct
 ├── server/
-│   ├── volunteer.c         Volunteer supervisor
-│   └── control-plane/      Cloudflare Worker + Registry DO
+│   └── volunteer.c         Volunteer supervisor
 ├── tools/
 │   ├── gate3_depgraph.py   Gate 3 + --fetch-k2 metadata
 │   └── gate*.sh            Gates 1,2,4,5,6
@@ -541,5 +538,6 @@ MoonTail/
 | [SECURITY.md](SECURITY.md) | Operators | Policy, CVE pin, checklist |
 | [BENCHMARKS.md](BENCHMARKS.md) | Perf / QA | Gate definitions, Phase 0 deliverables |
 | [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md) | Maintainers | K2 deploy + HN checklist |
-| [HOSTING.md](HOSTING.md) | **Maintainers only** | Deploy official Worker (not for users) |
+
+Control plane source: private **MoontailAI** repository (not in this tree).
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Quick pointer | One-page index to this guide |

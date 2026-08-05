@@ -20,7 +20,7 @@ K2 at Q4 is multi-hundred GB class — plan storage and VRAM honestly in README.
 
 ## Control plane (production)
 
-**Maintainers only** — one official MoonTail server. Deploy steps: [HOSTING.md](HOSTING.md). User-facing URL: [`config/official-worker.url`](../config/official-worker.url).
+**Maintainers only** — control plane is closed source in private repo **MoontailAI**. Deploy there; user-facing URL: [`config/official-worker.url`](../config/official-worker.url).
 
 Required Worker secrets:
 

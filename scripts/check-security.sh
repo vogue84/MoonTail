@@ -8,8 +8,9 @@ if grep -rE '0\.0\.0\.0' "$ROOT/server" "$ROOT/client" 2>/dev/null | grep -v che
   echo "FAIL: non-localhost rpc-server bind"; fail=1
 fi
 
-grep -q 'ACCESS_TOKEN_TTL_SEC' "$ROOT/server/control-plane/wrangler.toml" \
-  || { echo "FAIL: ACCESS_TOKEN_TTL_SEC not configured"; fail=1; }
+OFFICIAL="$(grep -v '^#' "$ROOT/config/official-worker.url" 2>/dev/null | grep -v '^$' | head -1 || true)"
+[[ "$OFFICIAL" =~ ^https:// ]] \
+  || { echo "FAIL: config/official-worker.url must contain official https Worker URL"; fail=1; }
 
 if grep -rE '0\.0\.0\.0' "$ROOT/config" 2>/dev/null | grep -v check-security; then
   echo "FAIL: 0.0.0.0 in config/examples"; fail=1

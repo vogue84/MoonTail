@@ -1,4 +1,3 @@
-# Official MoonTail control plane — maintained by the project only.
-# Do not run your own Worker; join this URL with moontail init.
-# Update this file when you deploy (one line, no comments in the active URL):
+# Official MoonTail control plane URL (maintainers deploy from private MoontailAI repo).
+# One active https:// line — no self-hosted Workers:
 https://moontail.example.workers.dev
