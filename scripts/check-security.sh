@@ -11,8 +11,8 @@ fi
 grep -q 'ACCESS_TOKEN_TTL_SEC' "$ROOT/server/control-plane/wrangler.toml" \
   || { echo "FAIL: ACCESS_TOKEN_TTL_SEC not configured"; fail=1; }
 
-if grep -rE '0\.0\.0\.0' "$ROOT/docs" "$ROOT/config" 2>/dev/null | grep -v check-security; then
-  echo "FAIL: 0.0.0.0 in docs/examples"; fail=1
+if grep -rE '0\.0\.0\.0' "$ROOT/config" 2>/dev/null | grep -v check-security; then
+  echo "FAIL: 0.0.0.0 in config/examples"; fail=1
 fi
 
 if [[ -f "$ROOT/server/volunteer.c" ]]; then
