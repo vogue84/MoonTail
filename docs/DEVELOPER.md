@@ -400,7 +400,7 @@ MoonTail ships **measurement infrastructure**, not performance promises. All gat
 | Gate | Script | Measures |
 |------|--------|----------|
 | 1 | `gate1_backbone.sh` | Local backbone ms (experts on CPU) |
-| 2 | `gate2_speculative.sh` | Speculative acceptance from llama-server logs |
+| 2 | *(deferred)* | Speculative decoding — cut for K3 launch |
 | 3 | `gate3_depgraph.py` | Layer dependency graph (K3 kimi_k3) |
 | 4 | `gate4_expert_rpc.sh` | Expert RPC latency (localhost); also writes `phase0_localhost_rpc.json` |
 | 5 | `gate5_concurrent.sh` | Concurrent sessions vs volunteer pool (`pairing_limited`) |
