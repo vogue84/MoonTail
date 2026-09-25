@@ -1,4 +1,4 @@
-# Security Policy — Reciprocal MoE Swarm v17 (Kimi K2 launch)
+# Security Policy — Reciprocal MoE Swarm (Kimi K3 launch)
 
 
 
@@ -16,7 +16,7 @@ KimiK3 / MoonTail enforces:
 
 1. **`rpc-server` binds `127.0.0.1` only** — never `0.0.0.0`, never port-forward to the public internet.
 
-2. **Cross-machine traffic uses Cloudflare Tunnel + Access only** — `/session` returns **503** if `CF_ACCESS_CLIENT_ID/SECRET` unset (no stub tokens).
+2. **Cross-machine traffic uses Cloudflare Tunnel** — public launch uses **`access_mode: tunnel_only`** (session-gated hostnames). `rpc-server` stays on `127.0.0.1`; never expose raw RPC to the internet.
 
 3. **peer_token** on register, queue, session, release — SHA-256 stored server-side.
 
@@ -38,7 +38,7 @@ KimiK3 / MoonTail enforces:
 
 
 
-Minimum submodule commit: **b8492** or later (CVE-2026-34159 patched). Enforced by `scripts/check-security.sh`.
+Minimum submodule commit: **`config/MIN_LLAMA_VERSION`** (currently **4b1a27fa0**, K3-capable master; includes CVE-2026-34159 fix). Enforced by `scripts/check-security.sh`.
 
 
 
@@ -56,7 +56,6 @@ Minimum submodule commit: **b8492** or later (CVE-2026-34159 patched). Enforced 
 
 | ggml-rpc PoC fragility | Both | Localhost bind + version pin + upstream monitoring. |
 
-| Credit hoarding / miscalibrated earn rate | Economy gaming | Flat 1 credit/sec + Gate 7 accrual check before `FEATURE_CREDITS=1`; no decay in v1. |
 
 
 
@@ -68,13 +67,9 @@ Minimum submodule commit: **b8492** or later (CVE-2026-34159 patched). Enforced 
 
 - [ ] Volunteer runs outbound `cloudflared tunnel` only (no inbound RPC port)
 
-- [ ] Access token TTL ≤ session length + 5 minutes
-
 - [ ] No `/peers` or tunnel hostname without successful `POST /session`
 
 - [ ] `--skip-tunnel` never used with non-localhost `--worker`
 
 - [ ] `volunteer.c` always runs cloudflared + rpc-server on 127.0.0.1
-
-- [ ] `FEATURE_CREDITS=0` until Gate 7 passes
 

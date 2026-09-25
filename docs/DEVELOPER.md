@@ -2,7 +2,7 @@
 
 Master reference for engineers working on the **Reciprocal MoE Swarm**: product intent, system design, security invariants, APIs, config, and measurement workflow.
 
-For user-facing quick start see [README](../README.md). For security policy detail see [SECURITY.md](SECURITY.md). For launch checklist see [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md).
+For user-facing quick start see [README](../README.md). For security policy detail see [SECURITY.md](SECURITY.md). For launch checklist see [KIMI_K3_LAUNCH.md](KIMI_K3_LAUNCH.md). FAQ: [FAQ.md](FAQ.md).
 
 ---
 
@@ -29,18 +29,17 @@ MoonTail does **not** implement inference, MoE routing, or a custom wire protoco
 - Not a trustless compute network (no cryptographic verification of expert outputs in v1).
 - Not a content moderation or prompt logging service — prompts/outputs are opaque compute payloads.
 
-### Target model: Kimi K2-Instruct
+### Target model: Kimi K3
 
 | Property | Value |
 |----------|-------|
-| HF repo | `moonshotai/Kimi-K2-Instruct` |
-| GGUF arch | `deepseek2` (upstream llama.cpp master) |
-| Layers | 61 |
-| Routed experts | 384 |
-| Experts per token | 8 |
-| Shared experts | 1 |
+| HF repo | `moonshotai/Kimi-K3` |
+| GGUF arch | `kimi-k3` (upstream llama.cpp master) |
+| Layers | 93 |
+| Routed experts | 896 |
+| Experts per token | 16 |
 
-Pull weights: `bash scripts/pull-k2.sh` or community Q4 split GGUF. Config: `config/kimi-k2.example.config.json`.
+Set `MOONTAIL_MODEL` to your GGUF path. Config: `config/kimi-k3.example.config.json`. Convert: `vendor/llama.cpp/conversion/kimi_k3.py`.
 
 ### Design principles
 
@@ -113,7 +112,7 @@ When llama.cpp can load the checkpoint, expert offload uses **buffer overrides**
 
 MoE forward in llama.cpp uses **`mul_mat_id`** (batched top-k expert matmuls). Per MoE layer ≈ **3 RPC-bound ops**, not 16×3 independent expert calls.
 
-Patterns are loaded from `config/tensor-overrides.kimi-k2` (default).
+Patterns are loaded from `config/tensor-overrides.kimi-k3` (default).
 
 ### Session lifecycle
 
@@ -217,25 +216,37 @@ Open session after job is `ready`. Body:
 }
 ```
 
-Returns **503** if `CF_ACCESS_CLIENT_ID/SECRET` unset (production fail-closed).
-
-Success (200):
+When `TRANSPORT=cloudflare` and Access secrets are **unset**, returns **tunnel-only** (public HN launch — no Zero Trust):
 
 ```json
 {
+  "transport": "cloudflare",
+  "access_mode": "tunnel_only",
+  "rpc_host": "gpu-you.example.com",
+  "rpc_port": 50052,
+  "tunnel_host": "gpu-you.example.com",
+  "peer_id": "volunteer-1",
+  "job_id": "uuid",
+  "ttl_sec": 3600
+}
+```
+
+When Access secrets **are** set:
+
+```json
+{
+  "transport": "cloudflare",
   "tunnel_host": "volunteer-1.example.com",
   "access_client_id": "...",
   "access_client_secret": "...",
   "access_token": "",
   "local_port": 50053,
   "peer_id": "volunteer-1",
-  "volunteer_pool_size": 3,
   "ttl_sec": 3600,
   "access_mode": "cloudflare_access_service_token"
 }
 ```
 
-When `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` Worker secrets are unset, `access_mode` is `"stub"` and `access_token` holds a dev placeholder.
 
 Failure (409): `{ "error": "no idle volunteer", "volunteer_pool_size": N }`.
 
@@ -260,8 +271,7 @@ Worker env vars (set in **MoontailAI** `wrangler.toml` or Worker secrets):
 | `ACCESS_TOKEN_TTL_SEC` | 3600 | Access credential lifetime |
 | `SESSION_TTL_SEC` | 3600 | Session reference TTL |
 | `PEER_STALE_SEC` | 120 | Idle peer eviction |
-| `CF_ACCESS_CLIENT_ID` | (secret) | Cloudflare Access service token |
-| `CF_ACCESS_CLIENT_SECRET` | (secret) | Cloudflare Access service token |
+| `MIN_VOLUNTEERS` | `1` (demo) | Swarm gate before prompts |
 
 ---
 
@@ -275,7 +285,7 @@ moontail [options] -- [llama-cli args...]
   --worker URL           Control plane URL
   --model PATH           GGUF path (-m)
   --llama PATH           llama-cli binary
-  --tensor-config F      -ot override file (default config/tensor-overrides.kimi-k2)
+  --tensor-config F      -ot override file (default config/tensor-overrides.kimi-k3)
   --experts START END    Session expert shard range
   --local-rpc PORT       Dev: skip tunnel, use 127.0.0.1:PORT
   --skip-tunnel          Dev: requires --worker on localhost
@@ -284,7 +294,9 @@ moontail [options] -- [llama-cli args...]
 
 **Dev path:** `--skip-tunnel` with localhost worker connects llama directly to local rpc-server (Gate 4). Refused if `--worker` is not localhost.
 
-**Production path:** POST /session → spawn cloudflared with `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` (or stub token) → poll local proxy port → exec llama → release session on exit.
+**Production path (tunnel-only):** POST /session → `access_mode: tunnel_only` → `llama-cli -rpc tunnel_host:50052` directly (no local cloudflared proxy).
+
+**Production path (Access):** POST /session → spawn `cloudflared access tcp` with service token creds → poll `127.0.0.1:50053` → exec llama → release session on exit.
 
 ### moontail-volunteer
 
@@ -309,27 +321,25 @@ moontail-volunteer [options]
 
 | File | Purpose |
 |------|---------|
-| `config/tensor-overrides.kimi-k2` | `-ot` patterns for expert → RPC0 |
-| `config/kimi-k2.example.config.json` | K2 HF fields (Gate 3 input) |
-| `config/kimi-linear-48b-proxy.config.json` | Gate 3 proxy (27-layer Kimi-Linear) |
+| `config/tensor-overrides.kimi-k3` | `-ot` patterns for expert → RPC0 |
+| `config/kimi-k3.example.config.json` | K3 HF fields (Gate 3 input) |
 | `config/shard-manifest.example.json` | Volunteer shard schema instance |
 | `config/shard-manifest.schema.json` | JSON schema for shard manifests |
 | `config/cloudflared-volunteer.yml` | Tunnel ingress → `tcp://127.0.0.1:50052` |
-| `config/cloudflare-access-policy.example.json` | Zero Trust template |
-| `config/depgraph-templates.json` | `kimi_linear` vs `deepseek2` layer templates |
-| `config/hf-kimi-k2-meta/` | Downloaded HF metadata (gitignored except checksums) |
+| `config/depgraph-templates.json` | `kimi_k3` layer template |
+| `config/hf-kimi-k3-meta/` | Downloaded HF metadata |
 
-Refresh K2 metadata (no weights):
+Refresh K3 metadata (no weights):
 
 ```bash
-python tools/gate3_depgraph.py --fetch-k2
+python tools/gate3_depgraph.py --fetch-k3
 ```
 
 Example shard manifest:
 
 ```json
 {
-  "model": "kimi-k2",
+  "model": "kimi-k3",
   "expert_ranges": [{
     "layer_start": 0,
     "layer_end": 60,
@@ -391,7 +401,7 @@ MoonTail ships **measurement infrastructure**, not performance promises. All gat
 |------|--------|----------|
 | 1 | `gate1_backbone.sh` | Local backbone ms (experts on CPU) |
 | 2 | `gate2_speculative.sh` | Speculative acceptance from llama-server logs |
-| 3 | `gate3_depgraph.py` | Layer dependency graph (K2 deepseek2 / proxy) |
+| 3 | `gate3_depgraph.py` | Layer dependency graph (K3 kimi_k3) |
 | 4 | `gate4_expert_rpc.sh` | Expert RPC latency (localhost); also writes `phase0_localhost_rpc.json` |
 | 5 | `gate5_concurrent.sh` | Concurrent sessions vs volunteer pool (`pairing_limited`) |
 | 6 | `gate6_auth_tunnel.sh` | Session + Access path; fails if raw RPC port exposed |
@@ -400,7 +410,7 @@ Quick offline run:
 
 ```bash
 python tools/gate3_depgraph.py
-python tools/gate3_depgraph.py config/kimi-k2.example.config.json
+python tools/gate3_depgraph.py config/kimi-k3.example.config.json
 MODEL=proxy.gguf bash tools/gate4_expert_rpc.sh   # needs GGML_RPC build
 ```
 
@@ -410,7 +420,7 @@ Performance model (honest):
 tok/s ≈ (accepted_tokens_per_round × 1000) / (backbone_ms + expert_rpc_ms + rtt_ms)
 ```
 
-For K2-scale models over WAN, ~180 RPC sync points per decode token (≈3 × MoE layers) makes RTT dominant until measured. See [BENCHMARKS.md](BENCHMARKS.md).
+For K3 over WAN, many MoE RPC sync points per decode token makes RTT dominant until measured. See [BENCHMARKS.md](BENCHMARKS.md).
 
 ---
 
@@ -439,7 +449,7 @@ Control plane dev lives in the private **MoontailAI** repo (`npm install && npm 
 - LOC budget, security checks, Gate 3 offline
 - Client/volunteer compile
 
-Optional `k2-gates` job (`workflow_dispatch`): HF metadata fetch, GGML_RPC build, Gate 4 when `K2_PROXY_GGUF` var set.
+Optional `k3-gates` job (`workflow_dispatch`): HF metadata fetch, GGML_RPC build, Gate 4 when `K3_PROXY_GGUF` var set.
 
 ### LOC budget
 
@@ -463,21 +473,21 @@ Prefer extending `gate3_depgraph.py` over new tools. Prefer `config/` over C/TS 
 
 ---
 
-## 9. Kimi K2 status (developer)
+## 9. Kimi K3 status (developer)
 
-**Go/no-go: GO** on upstream llama.cpp master with `deepseek2` + `-ot` expert offload.
+**Go/no-go:** Gate 4 on real K3 GGUF + `-ot` expert RPC before HN scale.
 
 | Item | Detail |
 |------|--------|
-| Submodule | `vendor/llama.cpp` pinned to upstream master (≥ b8492) |
-| Converter | `conversion/deepseek.py` for `moonshotai/Kimi-K2-Instruct` |
+| Submodule | `vendor/llama.cpp` with `LLM_ARCH_KIMI_K3` |
+| Converter | `conversion/kimi_k3.py` |
 | Expert `-ot` | `blk.*.ffn_{gate,up,down}_exps` → RPC0 |
 
-Full checklist: [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md).
+Full checklist: [KIMI_K3_LAUNCH.md](KIMI_K3_LAUNCH.md).
 
 ---
 
-## 12. Launch queue (community Kimi K2)
+## 12. Launch queue (community Kimi K3)
 
 **Flow:** `moontail init --accept-terms` → volunteer registers with `peer_token` → waiting room until `MIN_VOLUNTEERS` → `moontail prompt "…"` → FIFO queue → session (requires Cloudflare Access in prod).
 
@@ -489,7 +499,7 @@ Full checklist: [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md).
 | `MOONTAIL_TUNNEL_HOST` | — | Volunteer tunnel hostname |
 | `CF_ACCESS_CLIENT_ID/SECRET` | — | Required for `/session` in production |
 
-Prompts **must** use `/queue` then `/session` with `job_id`. Weights: `scripts/pull-k2.sh` or community GGUF.
+Prompts **must** use `/queue` then `/session` with `job_id`. Weights: `MOONTAIL_MODEL` or community GGUF.
 
 ---
 
@@ -497,7 +507,6 @@ Prompts **must** use `/queue` then `/session` with `job_id`. Weights: `scripts/p
 
 | Flag | Default | Gate required |
 |------|---------|---------------|
-| `FEATURE_CREDITS` | `0` | Gate 7 |
 
 Set in **MoontailAI** `wrangler.toml` or Worker secrets. Mirror in `config/features.json` for documentation.
 
@@ -509,7 +518,7 @@ Set in **MoontailAI** `wrangler.toml` or Worker secrets. Mirror in `config/featu
 MoonTail/
 ├── client/
 │   ├── moontail.c          Requester CLI
-│   ├── moon.h              Terminal banner
+│   (banner in assets/moontail-banner.h — outside client LOC budget)
 │   └── protocol.h          Shared constants / session struct
 ├── server/
 │   └── volunteer.c         Volunteer supervisor
@@ -524,7 +533,7 @@ MoonTail/
 │   ├── DEVELOPER.md        ← this document
 │   ├── SECURITY.md
 │   ├── BENCHMARKS.md
-│   └── KIMI_K2_LAUNCH.md
+│   └── KIMI_K3_LAUNCH.md
 └── vendor/llama.cpp/       Inference submodule (pinned)
 ```
 
@@ -537,7 +546,8 @@ MoonTail/
 | [README.md](../README.md) | Users / contributors | Quick start, CLI summary |
 | [SECURITY.md](SECURITY.md) | Operators | Policy, CVE pin, checklist |
 | [BENCHMARKS.md](BENCHMARKS.md) | Perf / QA | Gate definitions, Phase 0 deliverables |
-| [KIMI_K2_LAUNCH.md](KIMI_K2_LAUNCH.md) | Maintainers | K2 deploy + HN checklist |
+| [KIMI_K3_LAUNCH.md](KIMI_K3_LAUNCH.md) | Maintainers | K3 deploy + HN checklist |
+| [FAQ.md](FAQ.md) | Everyone | Petals comparison, backend cost |
 
 Control plane source: private **MoontailAI** repository (not in this tree).
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Quick pointer | One-page index to this guide |

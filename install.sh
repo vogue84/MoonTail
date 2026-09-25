@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MoonTail install — builds client + upstream llama.cpp (Kimi K2 / deepseek2) + RPC tools.
+# MoonTail install — builds client + upstream llama.cpp (Kimi K3 / kimi-k3) + RPC tools.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -19,7 +19,7 @@ MT_LIBS=""
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) MT_LIBS="-lws2_32" ;;
 esac
-$CC -O2 -Wall -std=c11 -Iclient -o build/moontail client/moontail.c client/cli.c $MT_LIBS
+$CC -O2 -Wall -std=c11 -Iclient -Iassets -o build/moontail client/moontail.c client/cli.c $MT_LIBS
 $CC -O2 -Wall -std=c11 -Iclient -o build/moontail-volunteer server/volunteer.c
 
 if command -v cmake >/dev/null; then
@@ -52,15 +52,16 @@ echo "Installed to ~/.moontail/bin/"
 echo ""
 echo "  export PATH=\"\$HOME/.moontail/bin:\$PATH\""
 echo ""
-echo "One command to join the swarm (Tailscale must be running):"
-echo "  moontail setup"
+echo "One command to join the swarm:"
+echo "  bash scripts/volunteer-tunnel.sh   # volunteers: one-time CF tunnel"
+echo "  moontail setup --accept-terms"
 echo ""
 echo "Or open the interactive shell:"
 echo "  moontail"
 echo ""
 
-if command -v tailscale >/dev/null && [[ -n "${OFFICIAL:-}" ]]; then
-  if [[ "${MOONTAIL_AUTO_SETUP:-1}" == "1" ]]; then
+if command -v cloudflared >/dev/null && [[ -n "${OFFICIAL:-}" ]]; then
+  if [[ "${MOONTAIL_AUTO_SETUP:-0}" == "1" ]]; then
     echo "==> Running moontail setup (set MOONTAIL_AUTO_SETUP=0 to skip)"
     export PATH="$HOME/.moontail/bin:$PATH"
     exec moontail setup

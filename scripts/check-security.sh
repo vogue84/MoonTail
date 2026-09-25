@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MIN_TAG="b8492"
+MIN_TAG="$(tr -d ' \r\n' < "$ROOT/config/MIN_LLAMA_VERSION" 2>/dev/null || echo b8492)"
 fail=0
 
 if grep -rE '0\.0\.0\.0' "$ROOT/server" "$ROOT/client" 2>/dev/null | grep -v check-security; then

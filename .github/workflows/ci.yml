@@ -19,35 +19,35 @@ jobs:
         run: bash scripts/check-security.sh
       - name: Gate 3 offline
         run: python3 tools/gate3_depgraph.py
-      - name: Gate 3 K2 config
-        run: python3 tools/gate3_depgraph.py config/kimi-k2.example.config.json
+      - name: Gate 3 K3 config
+        run: python3 tools/gate3_depgraph.py config/kimi-k3.example.config.json
       - name: Build client
         run: |
-          gcc -O2 -Wall -std=c11 -Iclient -o moontail client/moontail.c client/cli.c
+          gcc -O2 -Wall -std=c11 -Iclient -Iassets -o moontail client/moontail.c client/cli.c
           gcc -O2 -Wall -std=c11 -Iclient -o moontail-volunteer server/volunteer.c
 
-  k2-gates:
+  k3-gates:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Fetch K2 HF metadata
-        run: python3 tools/gate3_depgraph.py --fetch-k2
+      - name: Fetch K3 HF metadata
+        run: python3 tools/gate3_depgraph.py --fetch-k3
       - name: Build llama.cpp RPC
         run: |
           cmake -S vendor/llama.cpp -B vendor/llama.cpp/build -DGGML_RPC=ON -DLLAMA_BUILD_TESTS=OFF
           cmake --build vendor/llama.cpp/build --config Release -j $(nproc) --target rpc-server llama-bench
       - name: Gate 3 on HF config
-        run: python3 tools/gate3_depgraph.py config/kimi-k2.example.config.json
-      - name: Phase 0 localhost RPC (needs MODEL secret)
+        run: python3 tools/gate3_depgraph.py config/kimi-k3.example.config.json
+      - name: Gate 4 localhost RPC (needs MODEL secret)
         env:
-          MODEL: ${{ vars.K2_PROXY_GGUF }}
+          MODEL: ${{ vars.K3_PROXY_GGUF }}
         run: |
           if [[ -n "${MODEL:-}" && -f "$MODEL" ]]; then
             bash tools/gate4_expert_rpc.sh
           else
             mkdir -p results
-            echo '{"phase":"0c","pass":false,"error":"K2_PROXY_GGUF not set"}' > results/phase0_localhost_rpc.json
+            echo '{"phase":"0c","pass":false,"error":"K3_PROXY_GGUF not set"}' > results/phase0_localhost_rpc.json
           fi

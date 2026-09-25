@@ -1,8 +1,5 @@
-/*
- * MoonTail CLI — init (volunteer) | status | prompt
- */
 #include "protocol.h"
-#include "moon.h"
+#include "moontail-banner.h"
 #include "cli.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,11 +16,7 @@
 static void mt_sleep(int sec) { Sleep(sec * 1000); }
 #else
 #  include <unistd.h>
-#  include <sys/wait.h>
 #  include <sys/stat.h>
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <arpa/inet.h>
 static void mt_sleep(int sec) { sleep(sec); }
 #endif
 
@@ -34,22 +27,25 @@ static char g_peer_token[128] = "";
 static char g_model[512] = "";
 static char g_llama[512] = "llama-cli";
 static char g_volunteer[512] = "build/moontail-volunteer";
-static char g_tensor[512] = "config/tensor-overrides.kimi-k2";
-static char g_tunnel_host[K3_MAX_HOST] = "";
-char g_tailscale_host[K3_MAX_HOST] = "";
-char g_transport[32] = "tailscale";
+static char g_tensor[512] = "config/tensor-overrides.kimi-k3";
+static char g_chat_template[64] = "kimi-k3";
+char g_tunnel_host[K3_MAX_HOST] = "";
 static char g_session_peer[64] = "";
 static char g_job_id[64] = "";
 static int  g_quiet = 0;
 static int  g_skip_tunnel = 0;
-static int  g_local_port = K3_LOCAL_PROXY_PORT;
+
+static const char * mt_home(void) {
+    const char * h = getenv("HOME");
+#ifdef _WIN32
+    if (!h) h = getenv("USERPROFILE");
+#endif
+    return h;
+}
 
 static void config_path(void) {
     if (g_config[0]) return;
-    const char * home = getenv("HOME");
-#ifdef _WIN32
-    if (!home) home = getenv("USERPROFILE");
-#endif
+    const char * home = mt_home();
     if (home) snprintf(g_config, sizeof(g_config), "%s/.moontail/config", home);
     else snprintf(g_config, sizeof(g_config), ".moontail/config");
 }
@@ -74,10 +70,8 @@ void mt_config_load(void) {
     if (w) strncpy(g_worker, w, sizeof(g_worker) - 1);
     const char * th = getenv("MOONTAIL_TUNNEL_HOST");
     if (th) strncpy(g_tunnel_host, th, sizeof(g_tunnel_host) - 1);
-    const char * tsh = getenv("MOONTAIL_TAILSCALE_HOST");
-    if (tsh) strncpy(g_tailscale_host, tsh, sizeof(g_tailscale_host) - 1);
-    const char * tr = getenv("MOONTAIL_TRANSPORT");
-    if (tr) strncpy(g_transport, tr, sizeof(g_transport) - 1);
+    const char * ct = getenv("MOONTAIL_CHAT_TEMPLATE");
+    if (ct) strncpy(g_chat_template, ct, sizeof(g_chat_template) - 1);
     FILE * f = fopen(g_config, "r");
     if (!f) return;
     char line[768];
@@ -90,8 +84,6 @@ void mt_config_load(void) {
         else if (!strcmp(line, "peer_token")) strncpy(g_peer_token, eq + 1, sizeof(g_peer_token) - 1);
         else if (!strcmp(line, "model")) strncpy(g_model, eq + 1, sizeof(g_model) - 1);
         else if (!strcmp(line, "tunnel_host")) strncpy(g_tunnel_host, eq + 1, sizeof(g_tunnel_host) - 1);
-        else if (!strcmp(line, "tailscale_host")) strncpy(g_tailscale_host, eq + 1, sizeof(g_tailscale_host) - 1);
-        else if (!strcmp(line, "transport")) strncpy(g_transport, eq + 1, sizeof(g_transport) - 1);
     }
     fclose(f);
 }
@@ -99,19 +91,14 @@ void mt_config_load(void) {
 void mt_config_save(void) {
     config_path();
 #ifndef _WIN32
-    const char * home = getenv("HOME");
-    if (home) {
-        char dir[512]; snprintf(dir, sizeof(dir), "%s/.moontail", home);
-        mkdir(dir, 0755);
-    }
+    const char * home = mt_home();
+    if (home) { char dir[512]; snprintf(dir, sizeof(dir), "%s/.moontail", home); mkdir(dir, 0755); }
 #endif
     FILE * f = fopen(g_config, "w");
     if (!f) return;
     fprintf(f, "worker=%s\npeer_id=%s\npeer_token=%s\nmodel=%s\n",
             g_worker, g_peer_id, g_peer_token, g_model);
     if (g_tunnel_host[0]) fprintf(f, "tunnel_host=%s\n", g_tunnel_host);
-    if (g_tailscale_host[0]) fprintf(f, "tailscale_host=%s\n", g_tailscale_host);
-    if (g_transport[0]) fprintf(f, "transport=%s\n", g_transport);
     fclose(f);
 }
 
@@ -132,10 +119,7 @@ static void json_escape(const char * in, char * out, size_t cap) {
 }
 
 static char * body_tmp_path(char * buf, size_t cap) {
-    const char * home = getenv("HOME");
-#ifdef _WIN32
-    if (!home) home = getenv("USERPROFILE");
-#endif
+    const char * home = mt_home();
     if (home) snprintf(buf, cap, "%s/.moontail/post.json", home);
     else snprintf(buf, cap, ".moontail/post.json");
     return buf;
@@ -160,7 +144,7 @@ static int http_post_json(const char * path, const char * body, char * out, size
     char tpath[512], cmd[1200];
     body_tmp_path(tpath, sizeof(tpath));
 #ifndef _WIN32
-    const char * home = getenv("HOME");
+    const char * home = mt_home();
     if (home) { char d[512]; snprintf(d, sizeof(d), "%s/.moontail", home); mkdir(d, 0755); }
 #endif
     FILE * tf = fopen(tpath, "w");
@@ -199,50 +183,19 @@ static void json_str(const char * j, const char * key, char * dst, size_t cap) {
     *d = 0;
 }
 
-static int wait_tcp(int port, int ms) {
-#ifdef _WIN32
-    WSADATA wsa; if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return -1;
-#endif
-    for (int t = 0; t < ms; t += 200) {
-        int fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (fd < 0) break;
-        struct sockaddr_in a; memset(&a, 0, sizeof(a));
-        a.sin_family = AF_INET; a.sin_port = htons((unsigned short)port);
-        inet_pton(AF_INET, "127.0.0.1", &a.sin_addr);
-        int ok = connect(fd, (struct sockaddr *)&a, sizeof(a)) == 0;
-#ifdef _WIN32
-        closesocket(fd); Sleep(200);
-#else
-        close(fd); usleep(200000);
-#endif
-        if (ok) return 0;
-    }
-    return -1;
-}
-
 static int parse_session(const char * line, k3_session * s) {
-    json_str(line, "transport", s->transport, sizeof(s->transport));
-    json_str(line, "tunnel_host", s->tunnel_host, sizeof(s->tunnel_host));
+    char tunnel[K3_MAX_HOST];
     json_str(line, "rpc_host", s->rpc_host, sizeof(s->rpc_host));
-    json_str(line, "access_client_id", s->access_client_id, sizeof(s->access_client_id));
-    json_str(line, "access_client_secret", s->access_client_secret, sizeof(s->access_client_secret));
-    json_str(line, "access_token", s->access_token, sizeof(s->access_token));
+    json_str(line, "tunnel_host", tunnel, sizeof(tunnel));
     json_str(line, "peer_id", g_session_peer, sizeof(g_session_peer));
     json_str(line, "job_id", g_job_id, sizeof(g_job_id));
-    s->local_port = g_local_port;
     s->rpc_port = K3_DEFAULT_RPC_PORT;
-    const char * p = strstr(line, "\"local_port\":");
-    if (p) s->local_port = atoi(p + 13);
-    p = strstr(line, "\"rpc_port\":");
+    const char * p = strstr(line, "\"rpc_port\":");
     if (p) s->rpc_port = atoi(p + 11);
-    if (!s->rpc_host[0] && s->tunnel_host[0])
-        strncpy(s->rpc_host, s->tunnel_host, sizeof(s->rpc_host) - 1);
-    if (!strcmp(s->transport, "tailscale") && s->rpc_host[0]) {
-        snprintf(s->rpc_endpoint, sizeof(s->rpc_endpoint), "%s:%d", s->rpc_host, s->rpc_port);
-        return 0;
-    }
-    snprintf(s->rpc_endpoint, sizeof(s->rpc_endpoint), "127.0.0.1:%d", s->local_port);
-    return s->tunnel_host[0] ? 0 : -1;
+    if (!s->rpc_host[0] && tunnel[0]) strncpy(s->rpc_host, tunnel, sizeof(s->rpc_host) - 1);
+    if (!s->rpc_host[0]) return -1;
+    snprintf(s->rpc_endpoint, sizeof(s->rpc_endpoint), "%s:%d", s->rpc_host, s->rpc_port);
+    return 0;
 }
 
 static void release_session(void) {
@@ -258,32 +211,6 @@ static void release_session(void) {
     http_post_json("/session/release", body, dummy, sizeof(dummy));
 }
 
-static int spawn_tunnel(const k3_session * s) {
-    if (!strcmp(s->transport, "tailscale")) return 0;
-    if (g_skip_tunnel && worker_is_localhost()) return 0;
-    char url[32]; snprintf(url, sizeof(url), "127.0.0.1:%d", s->local_port);
-#ifdef _WIN32
-    char cmd[768];
-    if (s->access_client_id[0]) {
-        SetEnvironmentVariableA("CF_ACCESS_CLIENT_ID", s->access_client_id);
-        SetEnvironmentVariableA("CF_ACCESS_CLIENT_SECRET", s->access_client_secret);
-    }
-    snprintf(cmd, sizeof(cmd), "start /B cloudflared access tcp --url %s --hostname %s", url, s->tunnel_host);
-    return system(cmd) == 0 ? 0 : -1;
-#else
-    pid_t pid = fork();
-    if (pid == 0) {
-        if (s->access_client_id[0]) {
-            setenv("CF_ACCESS_CLIENT_ID", s->access_client_id, 1);
-            setenv("CF_ACCESS_CLIENT_SECRET", s->access_client_secret, 1);
-        }
-        execlp("cloudflared", "cloudflared", "access", "tcp", "--url", url, "--hostname", s->tunnel_host, NULL);
-        _exit(127);
-    }
-    return 0;
-#endif
-}
-
 static int run_llama_prompt(const k3_session * s, const char * prompt) {
     char ot_lines[8][256];
     int ot_n = 0;
@@ -291,7 +218,7 @@ static int run_llama_prompt(const k3_session * s, const char * prompt) {
     json_escape(prompt, esc, sizeof(esc));
 
     FILE * f = fopen(g_tensor, "r");
-    if (!f) f = fopen("config/tensor-overrides.kimi-k2", "r");
+    if (!f) f = fopen("config/tensor-overrides.kimi-k3", "r");
     if (f) {
         char line[256];
         while (fgets(line, sizeof(line), f) && ot_n < 8) {
@@ -301,28 +228,6 @@ static int run_llama_prompt(const k3_session * s, const char * prompt) {
         }
         fclose(f);
     }
-#ifndef _WIN32
-    char * args[32];
-    int na = 0;
-    args[na++] = g_llama;
-    args[na++] = "-m"; args[na++] = g_model;
-    args[na++] = "-rpc"; args[na++] = (char *)s->rpc_endpoint;
-    for (int i = 0; i < ot_n; i++) args[na++] = ot_lines[i];
-    args[na++] = "--chat-template"; args[na++] = "kimi-k2";
-    args[na++] = "-p"; args[na++] = esc;
-    args[na++] = "-n"; args[na++] = "128";
-    args[na++] = "--no-display-prompt";
-    args[na] = NULL;
-    pid_t pid = fork();
-    if (pid == 0) {
-        execvp(g_llama, args);
-        _exit(127);
-    }
-    if (pid < 0) return 1;
-    int st = 0;
-    waitpid(pid, &st, 0);
-    return WIFEXITED(st) ? WEXITSTATUS(st) : 1;
-#else
     char ot[1024] = "";
     for (int i = 0; i < ot_n; i++) {
         strncat(ot, ot_lines[i], sizeof(ot) - strlen(ot) - 1);
@@ -330,11 +235,10 @@ static int run_llama_prompt(const k3_session * s, const char * prompt) {
     }
     char cmd[16384];
     snprintf(cmd, sizeof(cmd),
-        "%s -m \"%s\" -rpc %s %s --chat-template kimi-k2 -p \"%s\" -n 128 --no-display-prompt",
-        g_llama, g_model, s->rpc_endpoint, ot, esc);
+        "%s -m \"%s\" -rpc %s %s --chat-template %s -p \"%s\" -n 128 --no-display-prompt",
+        g_llama, g_model, s->rpc_endpoint, ot, g_chat_template, esc);
     if (!g_quiet) fprintf(stderr, "moontail → llama-cli\n");
     return system(cmd);
-#endif
 }
 
 int mt_cmd_status(void) {
@@ -356,17 +260,6 @@ int mt_cmd_status(void) {
     return 0;
 }
 
-static void pull_model_path(void) {
-    FILE * f = popen("bash scripts/pull-k2.sh 2>/dev/null | tail -1", "r");
-    if (!f) return;
-    char line[512];
-    if (fgets(line, sizeof(line), f) && !strncmp(line, "model=", 6)) {
-        strncpy(g_model, line + 6, sizeof(g_model) - 1);
-        char * nl = strchr(g_model, '\n'); if (nl) *nl = 0;
-    }
-    pclose(f);
-}
-
 #ifdef _WIN32
 #  include <io.h>
 #  define mt_access _access
@@ -376,10 +269,7 @@ static void pull_model_path(void) {
 #endif
 
 static void resolve_bin_paths(void) {
-    const char * home = getenv("HOME");
-#ifdef _WIN32
-    if (!home) home = getenv("USERPROFILE");
-#endif
+    const char * home = mt_home();
     if (!home) return;
     char vol[512], llama[512];
 #ifdef _WIN32
@@ -401,35 +291,39 @@ int mt_cmd_init(int accept_terms) {
     mt_config_load();
     resolve_bin_paths();
     ensure_peer_token();
-    if (!g_transport[0]) strncpy(g_transport, "tailscale", sizeof(g_transport) - 1);
-    if (!strcmp(g_transport, "tailscale") && !g_tailscale_host[0]) mt_detect_tailscale();
     if (!g_peer_id[0]) snprintf(g_peer_id, sizeof(g_peer_id), "mt-%ld", (long)time(NULL));
     if (!g_model[0]) {
-        fprintf(stderr, "Pulling Kimi K2-Instruct from Hugging Face (needs HF_TOKEN)...\n");
-        if (system("bash scripts/pull-k2.sh") != 0)
-            fprintf(stderr, "pull failed — set HF_TOKEN or place GGUF in ~/.moontail/\n");
-        pull_model_path();
-    }
-    if (!g_transport[0]) {
-        const char * tr = getenv("MOONTAIL_TRANSPORT");
-        if (tr) strncpy(g_transport, tr, sizeof(g_transport) - 1);
+        const char * env = getenv("MOONTAIL_MODEL");
+        if (env && env[0]) strncpy(g_model, env, sizeof(g_model) - 1);
+        else fprintf(stderr, "Set MOONTAIL_MODEL to your Kimi K3 GGUF path (see docs/KIMI_K3_LAUNCH.md)\n");
     }
     mt_config_save();
     char cmd[4096];
+    char exp_end[16];
+    snprintf(exp_end, sizeof(exp_end), "%d", K3_DEFAULT_EXPERT_END);
     snprintf(cmd, sizeof(cmd),
-        "%s --worker \"%s\" --peer-id \"%s\" --peer-token \"%s\" --model \"%s\" --experts 0 383",
-        g_volunteer, g_worker, g_peer_id, g_peer_token, g_model);
-    if (!strcmp(g_transport, "tailscale")) {
-        strncat(cmd, " --transport tailscale", sizeof(cmd) - strlen(cmd) - 1);
-        if (g_tailscale_host[0]) {
-            strncat(cmd, " --tailscale-host \"", sizeof(cmd) - strlen(cmd) - 1);
-            strncat(cmd, g_tailscale_host, sizeof(cmd) - strlen(cmd) - 1);
+        "%s --worker \"%s\" --peer-id \"%s\" --peer-token \"%s\" --model \"%s\" --experts 0 %s",
+        g_volunteer, g_worker, g_peer_id, g_peer_token, g_model, exp_end);
+    {
+        char tun_cfg[512] = "config/cloudflared-volunteer.yml";
+        const char * home = mt_home();
+        if (home) {
+            char user_tun[512];
+#ifdef _WIN32
+            snprintf(user_tun, sizeof(user_tun), "%s\\.moontail\\cloudflared-volunteer.yml", home);
+#else
+            snprintf(user_tun, sizeof(user_tun), "%s/.moontail/cloudflared-volunteer.yml", home);
+#endif
+            if (mt_access(user_tun, 0) == 0) strncpy(tun_cfg, user_tun, sizeof(tun_cfg) - 1);
+        }
+        strncat(cmd, " --tunnel \"", sizeof(cmd) - strlen(cmd) - 1);
+        strncat(cmd, tun_cfg, sizeof(cmd) - strlen(cmd) - 1);
+        strncat(cmd, "\"", sizeof(cmd) - strlen(cmd) - 1);
+        if (g_tunnel_host[0]) {
+            strncat(cmd, " --tunnel-host \"", sizeof(cmd) - strlen(cmd) - 1);
+            strncat(cmd, g_tunnel_host, sizeof(cmd) - strlen(cmd) - 1);
             strncat(cmd, "\"", sizeof(cmd) - strlen(cmd) - 1);
         }
-    } else if (g_tunnel_host[0]) {
-        strncat(cmd, " --tunnel-host \"", sizeof(cmd) - strlen(cmd) - 1);
-        strncat(cmd, g_tunnel_host, sizeof(cmd) - strlen(cmd) - 1);
-        strncat(cmd, "\"", sizeof(cmd) - strlen(cmd) - 1);
     }
     strncat(cmd, " &", sizeof(cmd) - strlen(cmd) - 1);
     fprintf(stderr, "Volunteer %s starting (GPU lending — see docs/VOLUNTEER_TERMS.md)...\n", g_peer_id);
@@ -484,17 +378,10 @@ int mt_cmd_prompt(const char * prompt) {
     if (http_post_json("/session", body, buf, sizeof(buf))) { fprintf(stderr, "session failed\n"); return 1; }
     k3_session s; memset(&s, 0, sizeof(s));
     if (parse_session(buf, &s)) { fprintf(stderr, "bad session\n"); return 1; }
-    if (spawn_tunnel(&s)) { release_session(); return 1; }
-    if (strcmp(s.transport, "tailscale"))
-        if (wait_tcp(s.local_port, 15000)) { release_session(); return 1; }
-    if (!g_quiet && s.transport[0]) fprintf(stderr, "moontail → %s via %s (%s)\n", g_llama, s.transport, s.rpc_endpoint);
+    if (!g_quiet) fprintf(stderr, "moontail → %s -rpc %s\n", g_llama, s.rpc_endpoint);
     int rc = run_llama_prompt(&s, prompt);
     release_session();
     return rc != 0;
-}
-
-static void usage(const char * p) {
-    mt_print_help(p);
 }
 
 int main(int argc, char ** argv) {
@@ -526,6 +413,6 @@ int main(int argc, char ** argv) {
     if (!strcmp(argv[1], "status")) return mt_cmd_status();
     if (!strcmp(argv[1], "prompt") && argc > 2) return mt_cmd_prompt(argv[2]);
     if (!strcmp(argv[1], "shell") || !strcmp(argv[1], "repl")) return mt_cmd_repl();
-    usage(argv[0]);
+    mt_print_help(argv[0]);
     return 1;
 }

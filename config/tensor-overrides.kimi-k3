@@ -1,4 +1,4 @@
-# Kimi K2 (deepseek2) routed experts → RPC0
+# Kimi K3 routed experts → RPC0 (latent MoE expert weights)
 -ot blk\.*\.ffn_gate_exps=RPC0
 -ot blk\.*\.ffn_up_exps=RPC0
 -ot blk\.*\.ffn_down_exps=RPC0

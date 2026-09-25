@@ -1,4 +1,0 @@
-{
-  "credits_enabled": false,
-  "_note": "Enable only after gate7 (credit accrual) passes. Set FEATURE_CREDITS=1 on the Worker."
-}

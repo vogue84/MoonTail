@@ -8,7 +8,7 @@ RPC_BIN="${RPC_BIN:-$ROOT/vendor/llama.cpp/build/bin/rpc-server}"
 RPC="${RPC:-127.0.0.1:50052}"
 OUT="$ROOT/results/gate4_expert_rpc.json"
 P0="$ROOT/results/phase0_localhost_rpc.json"
-OVERRIDES="$ROOT/config/tensor-overrides.kimi-k2"
+OVERRIDES="$ROOT/config/tensor-overrides.kimi-k3"
 mkdir -p "$ROOT/results"
 
 write_p0() { echo "$1" > "$P0"; }

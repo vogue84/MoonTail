@@ -1,60 +1,40 @@
-# Measurement Gates — v17
+# Benchmark gates (v17)
 
-All gates write JSON under `results/`. Run after building llama.cpp (`vendor/llama.cpp/build/bin/`).
+MoonTail ships **measurement scripts** under `tools/`; results go to `results/`. No marketing tok/s without Gate 4 numbers on your hardware.
 
-## Gate 1 — Local backbone per verification round
-
-**Script:** `tools/gate1_backbone.sh`
-
-Measures llama-bench with expert tensors on CPU (backbone + router + shared expert local). Output: `results/gate1_backbone.json`.
-
-## Gate 2 — Speculative acceptance rate
-
-**Script:** `tools/gate2_speculative.sh`
-
-Uses llama-server with `--spec-type` variants. Output: `results/gate2_speculative.json`.
-
-## Gate 3 — Checkpoint dependency graph
+## Gate 3 — dependency graph
 
 **Script:** `tools/gate3_depgraph.py`
 
-Production target: `config/kimi-k2.example.config.json` (Kimi K2-Instruct, 61 layers, 384 experts, `deepseek2`).
-
-Default dry-run: `config/kimi-linear-48b-proxy.config.json` (27 layers — proxy only).
-
 ```bash
-python tools/gate3_depgraph.py config/kimi-k2.example.config.json
-python tools/gate3_depgraph.py --fetch-k2   # HF metadata only
+python tools/gate3_depgraph.py config/kimi-k3.example.config.json
+python tools/gate3_depgraph.py --fetch-k3   # HF metadata only
 ```
 
-## Gate 4 — Expert RPC latency (localhost dev)
+Production target: Kimi K3 (`kimi_k3`, 93 layers, 896 experts).
+
+## Gate 4 — expert RPC localhost
 
 **Script:** `tools/gate4_expert_rpc.sh`
 
-Uses `config/tensor-overrides.kimi-k2`. Output: `results/gate4_expert_rpc.json` and `results/phase0_localhost_rpc.json`.
+```bash
+MODEL=/path/to/k3.gguf bash tools/gate4_expert_rpc.sh
+```
 
-## Gate 5 — Concurrent streams (pairing ceiling)
+Uses `config/tensor-overrides.kimi-k3`. Output: `results/gate4_expert_rpc.json`, `results/phase0_localhost_rpc.json`.
 
-**Script:** `tools/gate5_concurrent.sh`
+## Gate 5 / 6
 
-## Gate 6 — Auth tunnel connectivity
+- **Gate 5:** pairing-limited concurrency (`tools/gate5_concurrent.sh`)
+- **Gate 6:** tunnel path / no public rpc bind (`tools/gate6_auth_tunnel.sh`)
 
-**Script:** `tools/gate6_auth_tunnel.sh`
+## Phase 0 go/no-go (Kimi K3)
 
-Sessions require Cloudflare Access in production (no stub mode). Raw rpc-server on 0.0.0.0 = fail.
+**Decision:** Gate 4 pass on K3 GGUF before public swarm expansion.
 
-## Phase 0 go/no-go (Kimi K2)
+See [KIMI_K3_LAUNCH.md](KIMI_K3_LAUNCH.md).
 
-**Decision: GO** on upstream llama.cpp master with `deepseek2` + `-ot` expert offload.
-
-See `docs/KIMI_K2_LAUNCH.md` for deploy checklist.
-
-| Artifact | Purpose |
-|----------|---------|
-| `config/kimi-k2.example.config.json` | 61 layers, 384 experts |
-| `config/tensor-overrides.kimi-k2` | GGUF `-ot` patterns |
-| `results/phase0_localhost_rpc.json` | Localhost RPC transport |
-
-## Gate 7 — Credit accrual
-
-**Script:** `tools/gate7_credit_accrual.sh` — optional; `FEATURE_CREDITS=0` by default.
+| Artifact | Role |
+|----------|------|
+| `config/kimi-k3.example.config.json` | Gate 3 input |
+| `config/tensor-overrides.kimi-k3` | `-ot` patterns |
